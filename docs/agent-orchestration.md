@@ -11,38 +11,35 @@
 Inspired by modern autonomous coding agents (`Claude Code`, `grok-build`), the modernization engine coordinates three specialized agents operating in an asynchronous ReAct (Reasoning + Acting) loop powered by **DeepSeek-v4-pro**.
 
 ```mermaid
-graph TD
+flowchart TD
     User(["Developer / User"])
 
-    subgraph Orchestration ["Agent Orchestrator (Node.js 24)"]
-        EventBus["Async Event Bus"]
+    subgraph BusLayer ["Async Event Bus (Node.js 24)"]
+        EventBus["Workspace Async Event Streamer"]
+    end
 
-        subgraph ArchAgent ["🧠 Modernize Architect Agent"]
-            A_Prompt["System Prompt: Domain Modeling & Dependency Analysis"]
-            A_Memory["Global Dependency & Symbol Memory"]
-            A_Skill1["Skill: grill-me Architectural Decision Interview"]
-            A_Skill2["Skill: Codebase Domain Modeler"]
-        end
+    subgraph ArchAgent ["🧠 Modernize Architect Agent"]
+        A_Prompt["Domain Modeling & Dependency Topology"]
+        A_Skill["Skill: grill-me Decision Interview"]
+        A_Prompt --- A_Skill
+    end
 
-        subgraph TransAgent ["🛠️ Code Transformer Agent"]
-            T_Prompt["System Prompt: AST Transformation & Refactoring"]
-            T_Tools["Tools: Dual-Track Patch, Slice Reader, Syntax Verifier"]
-            T_Skill3["Skill: Live Web Search Official Docs"]
-            T_Reflection["Self-Reflection & Syntax Recovery Loop"]
-        end
+    subgraph TransAgent ["🛠️ Code Transformer Agent"]
+        T_Prompt["AST Dual-Track Patching & Refactoring"]
+        T_Skill["Skill: Live Web Search Official Docs"]
+        T_Prompt --- T_Skill
+    end
 
-        subgraph TestAgent ["🧪 Test & Quality Verifier Agent"]
-            Q_Prompt["System Prompt: Test Synthesis & Verification"]
-            Q_Harness["Test Harness: Vitest / JUnit / PyTest"]
-            Q_Scorer["Business Logic Preservation Metric Engine"]
-            Q_CIDryRun["Pre-Flight CI Dry-Run & Type Checker"]
-        end
+    subgraph TestAgent ["🧪 Test & Quality Verifier Agent"]
+        Q_Prompt["Test Synthesis & Assertion Extraction"]
+        Q_Harness["Pre-Flight CI Dry-Run & Preservation Scorer"]
+        Q_Prompt --- Q_Harness
+    end
 
-        subgraph LLM_Engine ["DeepSeek-v4-pro Inference Engine"]
-            Cache["Prompt Caching Layer (Prefix Lock)"]
-            Client["OpenAI-Compatible DeepSeek Gateway"]
-            Cache --> Client
-        end
+    subgraph LLM_Engine ["DeepSeek-v4-pro Inference Layer"]
+        Cache["Prompt Caching (Prefix Lock)"]
+        Gateway["OpenAI-Compatible Gateway"]
+        Cache --- Gateway
     end
 
     User <-->|WebSocket / SSE & REST| EventBus
@@ -50,9 +47,9 @@ graph TD
     EventBus <--> TransAgent
     EventBus <--> TestAgent
 
-    ArchAgent -->|Emits Migration Plan & Task Queue| TransAgent
-    TransAgent -->|Emits Modernized Code Slices with Version Tags| TestAgent
-    TestAgent -->|Emits Verification & Fidelity Report| EventBus
+    ArchAgent -->|1. Migration Plan & Task Queue| TransAgent
+    TransAgent -->|2. Modernized Code Slices with Version Tags| TestAgent
+    TestAgent -->|3. Verification & Fidelity Report| EventBus
 
     ArchAgent <--> LLM_Engine
     TransAgent <--> LLM_Engine

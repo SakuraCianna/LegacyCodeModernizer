@@ -11,25 +11,23 @@
 During hackathon presentations, judging sessions, or remote team reviews, the workbench can be exposed to the public internet via two primary architectures:
 
 ```mermaid
-graph TD
-    subgraph EvaluationAccess ["Evaluation Access Topology"]
-        Judges["Remote Judges / Team Members (Public Web)"]
+flowchart TD
+    Judges["Remote Judges / Team Members (Public Web)"]
 
-        subgraph ModeA ["Mode 1: Zero-Cost Local Tunneling (Recommended for Demo)"]
-            Tunnel["Cloudflare Tunnel (cloudflared) / Ngrok"]
-            LocalHost["Local Windows 11 Host (R9-7945HX)"]
-            Tunnel --> LocalHost
-        end
-
-        subgraph ModeB ["Mode 2: 24/7 Cloud Deployment (Unattended Evaluation)"]
-            Vercel["Frontend on Vercel CDN"]
-            CloudVPS["Backend on Cloud VPS / Railway (Node 24)"]
-            Vercel <--> CloudVPS
-        end
-
-        Judges --> ModeA
-        Judges --> ModeB
+    subgraph ModeA ["Mode 1: Zero-Cost Local Tunneling (Recommended for Demo)"]
+        Tunnel["Cloudflare Tunnel (cloudflared) / Ngrok"]
+        LocalHost["Local Windows 11 Host (R9-7945HX + 32G)"]
+        Tunnel --> LocalHost
     end
+
+    subgraph ModeB ["Mode 2: 24/7 Cloud Deployment (Unattended Evaluation)"]
+        Vercel["Frontend on Vercel CDN"]
+        CloudVPS["Backend on Cloud VPS / Railway (Node 24)"]
+        Vercel <--> CloudVPS
+    end
+
+    Judges --> ModeA
+    Judges --> ModeB
 ```
 
 ---

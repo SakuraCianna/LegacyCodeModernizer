@@ -76,75 +76,56 @@ mindmap
 ## 🏛️ System Architecture
 
 ```mermaid
-graph TD
-    subgraph Client ["User Interface Layer (VS Code-Style Web Workbench)"]
-        A1["1-Click Sandbox Demos"] --> UI["Workbench Workspace"]
-        A2["Local ZIP Upload"] --> UI
-        A3["GitHub URL + Token"] --> UI
-        UI --> Diff["Monaco Side-by-Side Diff Editor"]
-        UI --> Term["xterm.js Live Agent Terminal"]
-        UI --> Topo["XYFlow Business Topology View"]
-        UI --> QA["Verification & QA Dashboard"]
+flowchart TD
+    subgraph ClientLayer ["1. Presentation Layer (VS Code Web Workbench)"]
+        UI["React 19 Workbench UI"]
+        Monaco["Monaco Diff Editor"]
+        LivePreview["Iframe Live UI Sandbox"]
+        Xterm["xterm.js Terminal Stream"]
+        Flow["XYFlow Business Graph"]
+        UI --- Monaco
+        UI --- LivePreview
+        UI --- Xterm
+        UI --- Flow
     end
 
-    subgraph Communication ["Bi-Directional Communication Layer"]
-        UI <-->|RESTful APIs| HTTP["API Gateway"]
-        UI <-->|Server-Sent Events / SSE| Stream["Realtime Event Streamer"]
+    subgraph GatewayLayer ["2. Gateway & State Layer (Node.js 24 Fastify)"]
+        REST["REST API Gateway"]
+        SSE["SSE Realtime Streamer"]
+        OAuth["GitHub OAuth SSO"]
+        SQLite["SQLite Embedded DB (WAL)"]
+        Workspaces["Multi-Tenant /workspaces/:user/:session"]
+        REST --- SSE
+        REST --- OAuth
+        REST --- SQLite
+        REST --- Workspaces
     end
 
-    subgraph Engine ["Node.js 24 LTS Backend Agent Runtime"]
-        HTTP --> Orch["Tri-Agent Orchestrator"]
-        Stream <--> Orch
-
-        subgraph Agents ["Autonomous Agent Matrix"]
-            Ag1["🧠 Modernize Architect Agent<br/>(Dependency & Domain Topology)"]
-            Ag2["🛠️ Code Transformer Agent<br/>(AST Patching & Code Migration)"]
-            Ag3["🧪 Test & Quality Verifier Agent<br/>(Regression Testing & Business Scoring)"]
-        end
-
-        Orch --> Ag1
-        Orch --> Ag2
-        Orch --> Ag3
-
-        subgraph LLM_Layer ["LLM Inference & Cache Layer"]
-            DS["DeepSeek-v4-pro Engine"]
-            Cache["Prompt Caching (Prefix Lock)"]
-            Cache --> DS
-        end
-
-        Ag1 <--> LLM_Layer
-        Ag2 <--> LLM_Layer
-        Ag3 <--> LLM_Layer
-
-        subgraph Skills ["Built-in Skill Suite"]
-            Sk1["💬 grill-me Decision Skill<br/>(Architectural Decision Interviews)"]
-            Sk2["🗺️ Codebase Domain Modeler<br/>(End-to-End Business Flow Analysis)"]
-            Sk3["🔍 Live Doc Searcher<br/>(Web Crawling Official Migration Guides)"]
-        end
-
-        Ag1 -.-> Sk1
-        Ag1 -.-> Sk2
-        Ag2 -.-> Sk3
-
-        subgraph Toolbox ["Deterministic Toolset"]
-            T1["search_symbols_and_deps"]
-            T2["read_source_slice"]
-            T3["apply_ast_patch"]
-            T4["verify_syntax_and_types"]
-            T5["run_regression_tests"]
-        end
-
-        Ag1 --> T1
-        Ag2 --> T2
-        Ag2 --> T3
-        Ag2 --> T4
-        Ag3 --> T5
+    subgraph AgentLayer ["3. Tri-Agent Autonomous Core (DeepSeek-v4-pro)"]
+        Arch["🧠 Modernize Architect (Domain & Dep Analysis)"]
+        Trans["🛠️ Code Transformer (Dual-Track Patching)"]
+        Test["🧪 Test & Quality Verifier (CI Dry-Run & Scoring)"]
+        LLM["DeepSeek-v4-pro Engine (Prompt Cache Prefix Lock)"]
+        Arch <--> LLM
+        Trans <--> LLM
+        Test <--> LLM
     end
 
-    subgraph Deliverables ["Output Pipeline"]
-        Orch --> PR["GitHub Pull Request with Changelog"]
-        Orch --> ZIP["Modernized Source ZIP Package"]
+    subgraph ExecutionLayer ["4. AST Intelligence & Tiered Sandboxes"]
+        AST["AST Toolchain (Tree-Sitter, Babel, ts-morph)"]
+        Sandbox["Tiered Sandboxes (Vitest Workers, Guarded Java/Py 2GB, MicroVM)"]
+        AST --- Sandbox
     end
+
+    subgraph DeliveryLayer ["5. Output Deliverables Pipeline"]
+        PR["GitHub Pull Request + CI Action"]
+        ZIP["Modernized Source ZIP + Report"]
+    end
+
+    ClientLayer <-->|RESTful & SSE| GatewayLayer
+    GatewayLayer <-->|Async Event Bus| AgentLayer
+    AgentLayer <-->|Deterministic Tool Calls| ExecutionLayer
+    AgentLayer -->|Compile & Export| DeliveryLayer
 ```
 
 ---

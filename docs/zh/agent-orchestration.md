@@ -11,38 +11,35 @@
 系统借鉴 `Claude Code` 与 `grok-build` 等先进编程 Agent 的架构设计，在 Node.js 24 后端调度三个具备独立专长与上下文隔离的 Agent，全流程由 **DeepSeek-v4-pro** 提供高精度推理支撑，形成紧密协作的 ReAct（Reasoning + Acting）闭环：
 
 ```mermaid
-graph TD
+flowchart TD
     User(["开发者 / 用户"])
 
-    subgraph Orchestration ["Agent 协同调度器 (Node.js 24)"]
-        EventBus["异步事件总线"]
+    subgraph BusLayer ["异步事件总线 (Node.js 24)"]
+        EventBus["工作区异步事件流分发器"]
+    end
 
-        subgraph ArchAgent ["🧠 架构分析师 (Modernize Architect)"]
-            A_Prompt["系统 Prompt: 业务建模与依赖拓扑分析"]
-            A_Memory["全局符号依赖图与业务记忆区"]
-            A_Skill1["技能: grill-me 架构决策追问交互"]
-            A_Skill2["技能: 业务全景与数据流建模"]
-        end
+    subgraph ArchAgent ["🧠 架构分析师 (Architect)"]
+        A_Prompt["业务全景建模与依赖拓扑分析"]
+        A_Skill["内置技能: grill-me 决策追问交互"]
+        A_Prompt --- A_Skill
+    end
 
-        subgraph TransAgent ["🛠️ 重构工程师 (Code Transformer)"]
-            T_Prompt["系统 Prompt: AST 级代码重写与语法转换"]
-            T_Tools["工具箱: 双轨补丁、切片读取、语法校验"]
-            T_Skill3["技能: 官方文档实时联网检索"]
-            T_Reflection["AST 语法自省与自我修正循环"]
-        end
+    subgraph TransAgent ["🛠️ 重构工程师 (Transformer)"]
+        T_Prompt["AST 双轨补丁代码重构与类型升级"]
+        T_Skill["内置技能: 官方文档实时联网检索"]
+        T_Prompt --- T_Skill
+    end
 
-        subgraph TestAgent ["🧪 测试工程师 (Test & Quality Verifier)"]
-            Q_Prompt["系统 Prompt: 现代测试用例合成与断言提取"]
-            Q_Harness["测试套件驱动: Vitest / JUnit 5 / PyTest"]
-            Q_Scorer["业务保真度评分计算引擎"]
-            Q_CIDryRun["本地 CI 预检与类型守卫引擎"]
-        end
+    subgraph TestAgent ["🧪 测试工程师 (Verifier)"]
+        Q_Prompt["历史逻辑测试用例合成与断言提取"]
+        Q_Harness["本地 CI 预检自愈与保真度计算引擎"]
+        Q_Prompt --- Q_Harness
+    end
 
-        subgraph LLM_Engine ["DeepSeek-v4-pro 核心推理引擎"]
-            Cache["Prompt Caching 静态前缀锁定层"]
-            Client["OpenAI-Compatible DeepSeek 网关"]
-            Cache --> Client
-        end
+    subgraph LLM_Engine ["DeepSeek-v4-pro 推理底座"]
+        Cache["Prompt Caching 静态前缀锁定"]
+        Gateway["OpenAI-Compatible 统一网关"]
+        Cache --- Gateway
     end
 
     User <-->|WebSocket / SSE 与 REST| EventBus
@@ -50,9 +47,9 @@ graph TD
     EventBus <--> TransAgent
     EventBus <--> TestAgent
 
-    ArchAgent -->|下发迁移依赖计划与任务队列| TransAgent
-    TransAgent -->|交付带版本号标记的现代化代码切片| TestAgent
-    TestAgent -->|产出保真度评分与测试报告| EventBus
+    ArchAgent -->|1. 下发分步迁移计划与任务队列| TransAgent
+    TransAgent -->|2. 交付带版本快照的重构代码切片| TestAgent
+    TestAgent -->|3. 产出保真度评分与测试报告| EventBus
 
     ArchAgent <--> LLM_Engine
     TransAgent <--> LLM_Engine

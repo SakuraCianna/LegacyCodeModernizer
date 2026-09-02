@@ -11,98 +11,56 @@
 **Legacy Code Modernizer** is built on a high-throughput, event-driven fullstack architecture centered around **Node.js 24 LTS** and powered by **DeepSeek-v4-pro**. The presentation layer is decoupled from the agentic execution core via bidirectional RESTful APIs and Server-Sent Events (SSE).
 
 ```mermaid
-graph TD
-    subgraph ClientLayer ["Presentation Layer (VS Code Web Workbench)"]
-        UI["React 19 + Vite Application"]
-        Panels["react-resizable-panels Layout Engine"]
-        Monaco["Monaco Diff & Code Editor Engine"]
-        LivePreview["Isolated Iframe Live Rendering Sandbox"]
-        Xterm["xterm.js Streaming Console"]
-        Flow["XYFlow Business Dependency Visualizer"]
-        UI --> Panels
-        Panels --> Monaco
-        Panels --> LivePreview
-        Panels --> Xterm
-        Panels --> Flow
+flowchart TD
+    subgraph ClientLayer ["1. Presentation Layer (VS Code Web Workbench)"]
+        UI["React 19 Web App"]
+        Monaco["Monaco Diff Editor"]
+        LivePreview["Iframe Live UI Sandbox"]
+        Xterm["xterm.js Terminal Stream"]
+        Flow["XYFlow Business Graph"]
+        UI --- Monaco
+        UI --- LivePreview
+        UI --- Xterm
+        UI --- Flow
     end
 
-    subgraph NetworkLayer ["Transport & Streaming Layer"]
-        REST["RESTful API: GitHub OAuth, Workspace Ingestion, PR Trigger"]
-        SSE["Server-Sent Events: Realtime Thought & Diff Streams"]
-        UI <-->|JSON / Multipart| REST
-        UI <--|text/event-stream| SSE
+    subgraph GatewayLayer ["2. Gateway & State Layer (Node.js 24 Fastify)"]
+        REST["REST API Gateway"]
+        SSE["SSE Event Streamer"]
+        OAuth["GitHub OAuth SSO"]
+        SQLite["SQLite Embedded DB (WAL Mode)"]
+        Workspaces["Multi-Tenant /workspaces/:username/:sessionId"]
+        REST --- SSE
+        REST --- OAuth
+        REST --- SQLite
+        REST --- Workspaces
     end
 
-    subgraph BackendRuntime ["Node.js 24 LTS Core Runtime Engine"]
-        Gateway["Fastify HTTP & SSE Gateway"]
-        AuthService["GitHub OAuth Authentication Service"]
-        DB["Embedded SQLite Database (better-sqlite3 / WAL Mode)"]
-        REST --> Gateway
-        Gateway --> AuthService
-        Gateway --> DB
-        Gateway --> SSE
-
-        subgraph WorkspaceManager ["Workspace & Storage Isolation"]
-            WM["Session-Isolated Workspace Controller"]
-            FS_Source["/workspaces/:username/:id/source (Readonly)"]
-            FS_Target["/workspaces/:id/target (Mutable)"]
-            Snapshots["/workspaces/:id/snapshots (Versioned History)"]
-            LockMgr["File Lock & Concurrency Controller"]
-            WM --> FS_Source
-            WM --> FS_Target
-            WM --> Snapshots
-            WM --> LockMgr
-        end
-
-        subgraph AgentCore ["Autonomous Agent Orchestrator"]
-            Orch["ReAct Multi-Agent Dispatcher"]
-            Arch["🧠 Modernize Architect Agent"]
-            Trans["🛠️ Code Transformer Agent"]
-            Test["🧪 Test & Quality Verifier Agent"]
-            Orch --> Arch
-            Orch --> Trans
-            Orch --> Test
-        end
-
-        subgraph LLM_Layer ["LLM Inference & Cache Layer"]
-            DS["DeepSeek-v4-pro Engine"]
-            Cache["Prompt Caching (Prefix Lock)"]
-            Cache --> DS
-        end
-
-        Arch <--> LLM_Layer
-        Trans <--> LLM_Layer
-        Test <--> LLM_Layer
-
-        subgraph ASTToolchain ["Deterministic AST & Static Analysis"]
-            TS["Tree-Sitter Multi-Language Engine"]
-            Babel["@babel/parser & @babel/traverse"]
-            Morph["ts-morph TypeScript Compiler Engine"]
-            VueCompiler["vue-template-compiler & @vue/compiler-sfc"]
-        end
-
-        subgraph TieredSandbox ["Tiered Verification Sandbox"]
-            WorkerPool["Node 24 Worker Threads (In-Process Vitest)"]
-            SubprocessRunner["Guarded Subprocess (Java/PyTest with 2GB Cap & 10s Timeout)"]
-            MicroVMAdapter["Pluggable MicroVM Adapter (E2B / Firecracker)"]
-            TieredSandbox --> WorkerPool
-            TieredSandbox --> SubprocessRunner
-            TieredSandbox --> MicroVMAdapter
-        end
-
-        Gateway --> WM
-        Gateway --> Orch
-        Orch --> ASTToolchain
-        Orch --> TieredSandbox
+    subgraph AgentLayer ["3. Tri-Agent Autonomous Core (DeepSeek-v4-pro)"]
+        Arch["🧠 Modernize Architect (Domain & Dep Analysis)"]
+        Trans["🛠️ Code Transformer (Dual-Track Patching)"]
+        Test["🧪 Test & Quality Verifier (CI Dry-Run & Scoring)"]
+        LLM["DeepSeek-v4-pro Engine (Prompt Cache Prefix Lock)"]
+        Arch <--> LLM
+        Trans <--> LLM
+        Test <--> LLM
     end
 
-    subgraph CloudVCS ["External Ecosystems & VCS"]
-        GitHub["GitHub REST / GraphQL API - PR Pipeline"]
-        WebDoc["Web Search Engine / Official Documentation CDNs"]
-        AuthService <--> GitHub
-        Gateway <--> GitHub
-        Orch <--> WebDoc
+    subgraph ExecutionLayer ["4. AST Intelligence & Tiered Sandboxes"]
+        AST["AST Toolchain (Tree-Sitter, Babel, ts-morph)"]
+        Sandbox["Tiered Sandboxes (Vitest Workers, Guarded Java/Py 2GB, MicroVM)"]
+        AST --- Sandbox
     end
+
+    subgraph DeliveryLayer ["5. Output Deliverables Pipeline"]
+        PR["GitHub Pull Request + CI Action"]
+        ZIP["Modernized Source ZIP + Report"]
+    end
+
+    ClientLayer <-->|RESTful & SSE| GatewayLayer
+    GatewayLayer <-->|Async Event Bus| AgentLayer
+    AgentLayer <-->|Deterministic Tool Calls| ExecutionLayer
+    AgentLayer -->|Compile & Export| DeliveryLayer
 ```
 
 ---
@@ -206,20 +164,18 @@ To support one-click rollback in the Monaco Diff editor and prevent race conditi
 
 ```mermaid
 flowchart TD
-    subgraph FileMutationFlow ["File Mutation & Snapshot Workflow"]
-        Req["Transformer Agent Mutation Request"] --> AcquireLock{"Acquire File Lock"}
-        AcquireLock -->|Lock Busy| Wait["Backoff & Retry (Max 3)"]
-        Wait --> AcquireLock
-        AcquireLock -->|Lock Acquired| ReadCurr["Read Current File & Current Version (vN)"]
-        ReadCurr --> Snapshot["Save Snapshot to /snapshots/filePath/vN.snap"]
-        Snapshot --> Apply["Apply Dual-Track Patch (Whole-File or Search/Replace)"]
-        Apply --> ValidateAST{"AST Syntax Check"}
-        ValidateAST -->|Syntax Error| Rollback["Auto Rollback to vN & Increment Retry"]
-        Rollback --> ReleaseLock["Release File Lock"]
-        ValidateAST -->|Syntax OK| BumpVer["Commit Target File as vN+1"]
-        BumpVer --> EmitSSE["Emit file_diff_chunk with version=vN+1"]
-        EmitSSE --> ReleaseLock
-    end
+    Req["Transformer Agent Mutation Request"] --> AcquireLock{"Acquire File Lock"}
+    AcquireLock -->|Lock Busy| Wait["Backoff & Retry (Max 3)"]
+    Wait --> AcquireLock
+    AcquireLock -->|Lock Acquired| ReadCurr["Read Current File & Version (vN)"]
+    ReadCurr --> Snapshot["Save Snapshot to /snapshots/filePath/vN.snap"]
+    Snapshot --> Apply["Apply Dual-Track Patch (Whole-File or Search/Replace)"]
+    Apply --> ValidateAST{"AST Syntax Check"}
+    ValidateAST -->|Syntax Error| Rollback["Auto Rollback to vN & Increment Retry"]
+    Rollback --> ReleaseLock["Release File Lock"]
+    ValidateAST -->|Syntax OK| BumpVer["Commit Target File as vN+1"]
+    BumpVer --> EmitSSE["Emit file_diff_chunk with version=vN+1"]
+    EmitSSE --> ReleaseLock
 ```
 
 ---
@@ -300,48 +256,43 @@ flowchart LR
 
 ```mermaid
 graph TB
-    subgraph App ["Main Application Root (App.tsx)"]
+    subgraph MainAppRoot ["Main Application Root (App.tsx)"]
         ActivityBar["Activity Bar Component (User Avatar, Workspaces)"]
-        PanelGroup["Resizable Panel Group"]
-        StatusBar["Global Status Bar"]
-
-        ActivityBar --> PanelGroup
-        PanelGroup --> LeftSidebar["Primary Sidebar Component"]
-        PanelGroup --> CenterEditor["Editor Area Component"]
-        PanelGroup --> RightSidebar["Secondary Agent Hub"]
-        PanelGroup --> BottomPanel["Bottom Panel Component"]
+        PanelGroup["Resizable Panel Group Layout"]
+        StatusBar["Global Status Bar (Fidelity Score, Progress)"]
+        ActivityBar --- PanelGroup
+        PanelGroup --- StatusBar
     end
 
-    subgraph LeftSidebarComponents ["Primary Sidebar Views"]
+    subgraph SidebarViews ["Primary Sidebar Views"]
         FileTree["Dual File Tree: Source vs Target"]
         BusinessMap["XYFlow Business Dependency Topology"]
         TaskRoadmap["Modernization Task Checklist"]
     end
 
-    subgraph CenterEditorComponents ["Editor Views"]
+    subgraph EditorViews ["Center Editor Views"]
         MonacoDiff["Monaco Side-by-Side Diff Editor"]
         LiveSandboxView["Iframe Live UI Preview Sandbox"]
         VersionSelector["File Snapshot Version Switcher (v1, v2...)"]
         RationaleBadge["AI Modification Rationale Tooltips"]
-        InlineReview["Accept / Reject Inline Actions"]
-        MonacoDiff --> VersionSelector
+        MonacoDiff --- VersionSelector
     end
 
-    subgraph RightSidebarComponents ["Agent Hub Views"]
+    subgraph AgentViews ["Right Secondary Agent Hub Views"]
         AgentChat["Tri-Agent Live Dialogue & Thought Trace"]
         ToolBadge["Tool Call & AST Inspection Cards"]
         DocSnippet["Live Web Search Snippet Cards"]
         GrillCard["grill-me Decision Cards"]
     end
 
-    subgraph BottomPanelComponents ["Bottom Panel Views"]
+    subgraph BottomViews ["Bottom Panel Views"]
         XtermTerminal["xterm.js Live Streaming Terminal"]
         TestRunner["Vitest / JUnit Test Results Grid"]
         LinterProblems["Problems & Diagnostics Tab"]
     end
 
-    LeftSidebar --> LeftSidebarComponents
-    CenterEditor --> CenterEditorComponents
-    RightSidebar --> RightSidebarComponents
-    BottomPanel --> BottomPanelComponents
+    MainAppRoot --> SidebarViews
+    MainAppRoot --> EditorViews
+    MainAppRoot --> AgentViews
+    MainAppRoot --> BottomViews
 ```

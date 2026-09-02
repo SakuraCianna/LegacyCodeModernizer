@@ -11,25 +11,23 @@
 在黑客松现场答辩、评委远程评审或多端协同场景下，系统支持两种公网访问架构：
 
 ```mermaid
-graph TD
-    subgraph EvaluationAccess ["评审访问拓扑"]
-        Judges["远程评委 / 团队成员 (公网浏览器)"]
+flowchart TD
+    Judges["远程评委 / 团队成员 (公网浏览器)"]
 
-        subgraph ModeA ["模式 1：零成本内网穿透 (推荐：本地高性能实时演示)"]
-            Tunnel["Cloudflare Tunnel (cloudflared) / Ngrok"]
-            LocalHost["本地 Windows 11 主机 (R9-7945HX + 32G)"]
-            Tunnel --> LocalHost
-        end
-
-        subgraph ModeB ["模式 2：云端全天候无人值守部署 (可选：离线异步评审)"]
-            Vercel["前端挂载 Vercel CDN"]
-            CloudVPS["后端运行于云端 VPS / Railway (Node 24)"]
-            Vercel <--> CloudVPS
-        end
-
-        Judges --> ModeA
-        Judges --> ModeB
+    subgraph ModeA ["模式 1：零成本内网穿透 (推荐：本地高性能实时演示)"]
+        Tunnel["Cloudflare Tunnel (cloudflared) / Ngrok"]
+        LocalHost["本地 Windows 11 主机 (R9-7945HX + 32G)"]
+        Tunnel --> LocalHost
     end
+
+    subgraph ModeB ["模式 2：云端全天候无人值守部署 (可选：离线异步评审)"]
+        Vercel["前端挂载 Vercel CDN"]
+        CloudVPS["后端运行于云端 VPS / Railway (Node 24)"]
+        Vercel <--> CloudVPS
+    end
+
+    Judges --> ModeA
+    Judges --> ModeB
 ```
 
 ---

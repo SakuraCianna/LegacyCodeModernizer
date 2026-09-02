@@ -76,75 +76,56 @@ mindmap
 ## 🏛️ 系统架构
 
 ```mermaid
-graph TD
-    subgraph Client ["用户交互层 (VS Code 风格 Web 工作台)"]
-        A1["1-Click 经典靶场 Demo"] --> UI["工作区交互面板"]
-        A2["本地 ZIP 拖拽上传"] --> UI
-        A3["GitHub URL + Token 链接"] --> UI
-        UI --> Diff["Monaco 双栏并排 Diff 编辑器"]
-        UI --> Term["xterm.js 实时 Agent 终端日志"]
-        UI --> Topo["XYFlow 业务链路拓扑图"]
-        UI --> QA["质量验证与测试看板"]
+flowchart TD
+    subgraph ClientLayer ["1. 用户展示层 (VS Code Web 工作台)"]
+        UI["React 19 现代化应用"]
+        Monaco["Monaco Diff 双栏差异编辑器"]
+        LivePreview["iframe 独立实时渲染沙箱"]
+        Xterm["xterm.js 实时流式控制台"]
+        Flow["XYFlow 业务依赖拓扑图"]
+        UI --- Monaco
+        UI --- LivePreview
+        UI --- Xterm
+        UI --- Flow
     end
 
-    subgraph Communication ["双向通信与流式推送层"]
-        UI <-->|RESTful API| HTTP["API 网关"]
-        UI <-->|Server-Sent Events / SSE| Stream["实时事件流推送器"]
+    subgraph GatewayLayer ["2. 网关与状态层 (Node.js 24 Fastify)"]
+        REST["REST API 路由网关"]
+        SSE["SSE 实时事件流推送"]
+        OAuth["GitHub OAuth 单点登录"]
+        SQLite["嵌入式 SQLite 数据库 (WAL 模式)"]
+        Workspaces["多租户目录 /workspaces/:username/:sessionId"]
+        REST --- SSE
+        REST --- OAuth
+        REST --- SQLite
+        REST --- Workspaces
     end
 
-    subgraph Engine ["Node.js 24 LTS 后端 Agent 运行时"]
-        HTTP --> Orch["三 Agent 协同调度器"]
-        Stream <--> Orch
-
-        subgraph Agents ["自主专家 Agent 矩阵"]
-            Ag1["🧠 Modernize Architect<br/>(架构与业务全景分析师)"]
-            Ag2["🛠️ Code Transformer<br/>(现代代码重构工程师)"]
-            Ag3["🧪 Test & Quality Verifier<br/>(业务保真与测试工程师)"]
-        end
-
-        Orch --> Ag1
-        Orch --> Ag2
-        Orch --> Ag3
-
-        subgraph LLM_Layer ["LLM 推理与上下文缓存层"]
-            DS["DeepSeek-v4-pro 推理引擎"]
-            Cache["Prompt Caching 静态前缀锁定"]
-            Cache --> DS
-        end
-
-        Ag1 <--> LLM_Layer
-        Ag2 <--> LLM_Layer
-        Ag3 <--> LLM_Layer
-
-        subgraph Skills ["内置专属技能库 (Skills)"]
-            Sk1["💬 grill-me 决策技能<br/>(重大架构分支追问交互)"]
-            Sk2["🗺️ 业务全景建模技能<br/>(端到端业务流与依赖分析)"]
-            Sk3["🔍 官方文档联网检索<br/>(在线抓取最新升级与 Breaking 指南)"]
-        end
-
-        Ag1 -.-> Sk1
-        Ag1 -.-> Sk2
-        Ag2 -.-> Sk3
-
-        subgraph Toolbox ["确定性工具箱 (Toolbox)"]
-            T1["search_symbols_and_deps"]
-            T2["read_source_slice"]
-            T3["apply_ast_patch"]
-            T4["verify_syntax_and_types"]
-            T5["run_regression_tests"]
-        end
-
-        Ag1 --> T1
-        Ag2 --> T2
-        Ag2 --> T3
-        Ag2 --> T4
-        Ag3 --> T5
+    subgraph AgentLayer ["3. 三 Agent 自主核心 (DeepSeek-v4-pro)"]
+        Arch["🧠 架构与业务全景分析师"]
+        Trans["🛠️ 现代代码重构工程师"]
+        Test["🧪 业务保真与测试工程师"]
+        LLM["DeepSeek-v4-pro 推理引擎 (Prompt Cache 锁定)"]
+        Arch <--> LLM
+        Trans <--> LLM
+        Test <--> LLM
     end
 
-    subgraph Deliverables ["成果交付流水线"]
-        Orch --> PR["GitHub Pull Request 自动提交与变更日志"]
-        Orch --> ZIP["现代化工程源码 ZIP 打包下载"]
+    subgraph ExecutionLayer ["4. AST 智能分析与分层沙箱"]
+        AST["确定性 AST 工具链 (Tree-Sitter, Babel, ts-morph)"]
+        Sandbox["分层沙箱 (Vitest 线程, 2GB 熔断 Java/Py, MicroVM)"]
+        AST --- Sandbox
     end
+
+    subgraph DeliveryLayer ["5. 成果交付流水线"]
+        PR["GitHub Pull Request 自动提交与 CI 检查"]
+        ZIP["现代化工程源码 ZIP 打包与审计报告"]
+    end
+
+    ClientLayer <-->|RESTful 与 SSE 协议| GatewayLayer
+    GatewayLayer <-->|异步事件总线| AgentLayer
+    AgentLayer <-->|确定性工具调用| ExecutionLayer
+    AgentLayer -->|编译打包交付| DeliveryLayer
 ```
 
 ---
