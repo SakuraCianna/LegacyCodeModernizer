@@ -51,7 +51,7 @@ mindmap
       Python 2.7 升级至 Python 3.12+
       老旧 Flask/Django 升级至 FastAPI/现代 Django
       类型注解 Injection 与现代 Asyncio 异步化
-      Six 与 urllib2 等弃用库彻底清理
+      清理 Six 与 urllib2 等弃用库
     Vue / React 生态升级
       Vue 2 Options API 迁移至 Vue 3 Script Setup & TS
       React 早期 Class 组件重构为 React 19 Hooks
@@ -308,7 +308,7 @@ pnpm dev
 - 🤖 [**Agent 协同机制与协议规范**](./docs/zh/agent-orchestration.md) ([English](./docs/agent-orchestration.md))：DeepSeek-v4-pro 推理矩阵、ReAct 状态机、本地 CI 预检自愈闭环与 SSE 流式事件协议。
 - 🗺️ [**现代化赛道与转换矩阵**](./docs/zh/migration-matrix.md) ([English](./docs/migration-matrix.md))：四大赛道 AST 转换规则、弃用 API 映射与业务保真守卫。
 - 🧪 [**基准测试集与量化指标规范**](./docs/zh/benchmark-test-suites.md) ([English](./docs/benchmark-test-suites.md))：四大赛道端到端基准源码、测试断言与数学保真度评分计算公式。
-- 🌐 [**公网部署与内网穿透规范**](./docs/zh/deployment-and-tunneling.md) ([English](./docs/deployment-and-tunneling.md))：Cloudflare Tunnel 与 Ngrok 极速穿透、防休眠保活策略与云端全天候托管方案。
+- 🌐 [**公网部署与内网穿透规范**](./docs/zh/deployment-and-tunneling.md) ([English](./docs/deployment-and-tunneling.md))：Cloudflare Tunnel 与 Ngrok 穿透配置、防休眠保活策略与云端全天候托管方案。
 
 ---
 

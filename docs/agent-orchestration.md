@@ -173,7 +173,7 @@ When processing legacy systems, significant architectural forks exist where mult
 | :--- | :---: | :--- | :--- | :--- |
 | **Option A: Spring Boot 3 REST + Vue 3 SPA** | **(Recommended)** | • Complete frontend/backend decoupling<br>• High UI interactivity & modern component ecosystem<br>• Scalable for future mobile/third-party API consumers | • Requires separate frontend build step<br>• Stateless JWT authentication rewrite required | Long-term enterprise apps requiring high scalability & modern UX |
 | **Option B: Spring Boot 3 + Thymeleaf Template** | Alternative | • Single-repo monolithic build<br>• Preserves server-side session mental model<br>• Fast zero-build deployment | • Coupled server rendering<br>• Limited dynamic UI interactivity<br>• Harder to migrate to mobile clients | Internal admin tools or low-maintenance utility services |
-| **Option C: Quarkus 3 + React 19 SPA** | Alternative | • Ultra-low memory & fast GraalVM native boot<br>• Modern reactive backend | • Steeper learning curve for traditional Spring developers | Cloud-native serverless or microservice deployments |
+| **Option C: Quarkus 3 + React 19 SPA** | Alternative | • Low memory usage & GraalVM native boot<br>• Modern reactive backend | • Steeper learning curve for traditional Spring developers | Cloud-native serverless or microservice deployments |
 
 #### Case 2: Vue 2 State Management Migration Fork
 | Candidate Option | Recommendation | Pros (Advantages) | Cons (Disadvantages) | Ideal Use Case |

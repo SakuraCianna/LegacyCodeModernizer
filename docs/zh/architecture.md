@@ -67,7 +67,7 @@ flowchart TD
 
 ## 2. GitHub OAuth 统一认证与 SQLite 存储架构
 
-系统彻底摒弃传统的账号/密码注册机制，全站采用 **GitHub OAuth 一键单点登录 (SSO)**。用户无需手动生成或配置 GitHub Personal Access Token (PAT)，OAuth 鉴权成功后系统即可直接以用户身份安全拉取私有代码库并自动创建 PR：
+系统采用 **GitHub OAuth 一键单点登录 (SSO)**。用户无需手动生成或配置 GitHub Personal Access Token (PAT)，OAuth 鉴权成功后系统即可直接以用户身份安全拉取私有代码库并自动创建 PR：
 
 ```mermaid
 sequenceDiagram
@@ -202,7 +202,7 @@ graph TD
     end
 
     subgraph Tier3_Enterprise ["第 3 层：企业级云端 MicroVM 接口 (可插拔扩展)"]
-        E2B_Adapter["E2B / Firecracker MicroVM 网关 (5ms 极速冷启动)"]
+        E2B_Adapter["E2B / Firecracker MicroVM 网关 (低延迟冷启动)"]
         FullCLI["完整 Linux Shell 与沙箱守护进程"]
         E2B_Adapter --> FullCLI
     end

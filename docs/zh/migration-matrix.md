@@ -36,7 +36,7 @@ flowchart TD
 ### 核心转换规则与业务保真守卫
 - **脚本解耦（Scriptlet Decoupling）**：严格提取 `<% ... %>` 中的业务逻辑，封装为高内聚的 Spring `@Service` 业务方法。
 - **表单对象绑定**：将 `<form action="...">` 与 `<jsp:useBean>` 映射为 Java 21 `record` 强类型 DTO，自动注入 `@Valid` 与 Jakarta 校验注解。
-- **SQL 注入防范**：将字符串拼接的 `Statement.executeQuery("SELECT ... " + id)` 彻底重构为 Spring Data JPA 参数化查询或 ORM 方法。
+- **SQL 注入防范**：将字符串拼接的 `Statement.executeQuery("SELECT ... " + id)` 重构为 Spring Data JPA 参数化查询或 ORM 方法。
 
 ---
 
@@ -146,4 +146,4 @@ flowchart TD
 ### 核心转换规则与业务保真守卫
 - **显式扩展名补齐**：Node.js 官方原生 ESM 规范要求相对路径导入必须附带 `.js` 或 `.ts` 扩展名。
 - **顶级 Await 利用**：合理利用 Node 24 原生 Top-Level Await 简化数据库与配置的初始化启动流程。
-- **消除回调嵌套**：使用 `node:fs/promises`、`node:stream/promises` 与 `node:util.promisify` 将回调金字塔彻底扁平化为 `async/await`。
+- **消除回调嵌套**：使用 `node:fs/promises`、`node:stream/promises` 与 `node:util.promisify` 将多层回调重构为 `async/await`。

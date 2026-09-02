@@ -8,7 +8,7 @@
 
 ## 1. 确定性数学保真度评分计算公式
 
-为彻底杜绝主观模糊评价，系统通过 **Test & Quality Verifier Agent** 对每次现代化重构计算客观、确定性的 **综合业务保真度评分** ($S_{\text{fidelity}} \in [0, 100\%]$)：
+为提供客观、可量化的技术评价标准，系统通过 **Test & Quality Verifier Agent** 对每次现代化重构计算客观、确定性的 **综合业务保真度评分** ($S_{\text{fidelity}} \in [0, 100\%]$)：
 
 $$S_{\text{fidelity}} = 0.50 \times P_{\text{tests}} + 0.30 \times C_{\text{ast}} + 0.20 \times M_{\text{schema}}$$
 
