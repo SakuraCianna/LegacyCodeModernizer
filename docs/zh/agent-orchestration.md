@@ -26,7 +26,7 @@ graph TD
 
         subgraph TransAgent ["🛠️ 重构工程师 (Code Transformer)"]
             T_Prompt["系统 Prompt: AST 级代码重写与语法转换"]
-            T_Tools["工具箱: AST Patch、切片读取、语法校验"]
+            T_Tools["工具箱: 双轨补丁、切片读取、语法校验"]
             T_Skill3["技能: 官方文档实时联网检索"]
             T_Reflection["AST 语法自省与自我修正循环"]
         end
@@ -50,7 +50,7 @@ graph TD
     EventBus <--> TestAgent
 
     ArchAgent -->|下发迁移依赖计划与任务队列| TransAgent
-    TransAgent -->|交付现代化代码切片| TestAgent
+    TransAgent -->|交付带版本号标记的现代化代码切片| TestAgent
     TestAgent -->|产出保真度评分与测试报告| EventBus
 
     ArchAgent <--> LLM_Engine
@@ -103,17 +103,19 @@ stateDiagram-v2
         ReadSlice: 按需读取源文件切片
         ReadSlice --> FetchDoc
         FetchDoc: 联网检索官方文档
-        FetchDoc --> GenPatch
-        GenPatch: DeepSeek-v4-pro 生成现代化重构代码
+        FetchDoc --> AcquireLock
+        AcquireLock: 获取文件锁并记录当前 vN 快照
+        AcquireLock --> GenPatch
+        GenPatch: DeepSeek-v4-pro 生成双轨补丁
         GenPatch --> ApplyPatch
-        ApplyPatch: 写入AST重构补丁
+        ApplyPatch: 写入AST补丁(新建全量/局部替换)
         ApplyPatch --> VerifySyntax
         VerifySyntax: 执行静态语法与类型校验
         VerifySyntax --> FixSyntax: 发现语法或类型错误
-        FixSyntax: 自我反思与修复循环
+        FixSyntax: 自动回退至快照 vN 并重新尝试
         FixSyntax --> ApplyPatch
         VerifySyntax --> FinalizeFile: 校验通过
-        FinalizeFile: 单文件重构完成
+        FinalizeFile: 提交 vN+1 快照并释放文件锁
     }
 
     TRANSFORMING --> VERIFYING: 全仓文件重构完毕
@@ -133,32 +135,38 @@ stateDiagram-v2
         [*] --> StreamDiff
         StreamDiff: 流式推送到MonacoDiff视图
         StreamDiff --> HumanReview
-        HumanReview: 开发者行级审查
+        HumanReview: 开发者行级审查与版本步进
         HumanReview --> GeneratePR: 全部确认
-        HumanReview --> RejectPatch: 局部驳回
-        RejectPatch: 指派Agent重新生成
+        HumanReview --> RollbackStep: 回退到历史快照 vN
+        RollbackStep --> RePromptTransformer
+        RePromptTransformer: 指派Agent重新生成
     }
 
-    RejectPatch --> TRANSFORMING
+    RePromptTransformer --> TRANSFORMING
     GeneratePR --> [*]
 ```
 
 ---
 
-## 3. `grill-me` 架构决策追问技能
+## 3. 双轨代码补丁写入与版本快照协议 (Dual-Track Patching)
 
-在处理老旧系统时，常常存在重大的架构分歧点。内置的 **`grill-me`** 技能可防止 Agent 在缺少关键业务约束时“凭空自作主张”，确保迁移方向与企业长期技术演进目标一致。
+为彻底杜绝大模型在输出 Git Unified Diff 时常见的“行号偏移幻觉（Off-by-one Error）”，并支持毫秒级历史快照回退，**Code Transformer Agent** 严格采用**双轨代码补丁策略**：
 
-### 核心触发场景与推荐决策案例
-1. **JSP 架构解耦分歧**：
-   - *追问内容*：“检测到老旧 JSP 页面包含大量表单与会话交互，应该将其重构为**前后端分离的 Spring Boot 3 REST API + Vue 3 前端**，还是**单体 Spring Boot 3 + Thymeleaf 模板工程**？”
-   - *推荐选项*：“Spring Boot REST + Vue 3（推荐：利于系统微服务解耦与现代 SPA 交互）”。
-2. **Vue 2 状态管理升级分歧**：
-   - *追问内容*：“老旧代码中深度依赖全局 `EventBus` 与 `Vuex 3`，升级目标优先选择 **Pinia** 官方状态库，还是采用轻量级 **Vue Composables** 响应式组合？”
-   - *推荐选项*：“Pinia（推荐：具备完整的 TypeScript 类型推导与 DevTools 支持）”。
-3. **Python 异步化重构分歧**：
-   - *追问内容*：“检测到老旧 Python 2 同步阻塞网络抓取任务，重构目标选择 **`asyncio` + FastAPI 异步并发**，还是保留**传统 Flask + Gunicorn 线程池**？”
-   - *推荐选项*：“asyncio + FastAPI（推荐：在 I/O 密集型业务中吞吐量提升显著）”。
+### 3.1 双轨补丁机制设计
+1. **轨道 A：新建/解耦文件走全量生成（Whole-File Generation）**
+   - 适用于抽离的 Spring Boot REST Controller、Pinia Store 状态树、TypeScript DTO Record 等全新目标文件；
+   - 直接将完整现代化源码输出至 `/target` 目录。
+2. **轨道 B：现有文件局部重构走结构化 Search/Replace 块（Block Replacement）**
+   - 适用于在已有老旧工具类、组件上进行针对性方法升级；
+   - 采用标准结构化标记块：
+     ```text
+     <<<<<<< SEARCH
+     String action = request.getParameter("action");
+     =======
+     String action = request.getAction();
+     >>>>>>> REPLACE
+     ```
+   - 后端 Node 24 内置模糊匹配算法（忽略多余空白/缩进），直接在目标代码上完成精确替换，规避行号计算错误。
 
 ---
 
@@ -229,6 +237,26 @@ export type ModernizerSSEEvent =
       timestamp: number;
     }
   | {
+      type: "file_diff_chunk";
+      filePath: string;
+      status: "in_progress" | "completed";
+      patchType: "whole_file" | "search_replace";
+      fileVersion: number;        // 例如 1, 2, 3
+      previousVersion: number;    // 例如 0, 1, 2
+      rollbackSupported: boolean;
+      originalContent: string;
+      modifiedContent: string;
+      rationale: string;
+      timestamp: number;
+    }
+  | {
+      type: "file_lock_status";
+      filePath: string;
+      state: "acquired" | "waiting" | "released";
+      heldByAgent: "transformer" | "verifier";
+      timestamp: number;
+    }
+  | {
       type: "doc_search_snippet";
       query: string;
       url: string;
@@ -247,14 +275,6 @@ export type ModernizerSSEEvent =
         recommended?: boolean;
         description: string;
       }>;
-    }
-  | {
-      type: "file_diff_chunk";
-      filePath: string;
-      status: "in_progress" | "completed";
-      originalContent: string;
-      modifiedContent: string;
-      rationale: string;
     }
   | {
       type: "test_suite_result";

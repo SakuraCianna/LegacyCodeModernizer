@@ -26,7 +26,7 @@ graph TD
 
         subgraph TransAgent ["🛠️ Code Transformer Agent"]
             T_Prompt["System Prompt: AST Transformation & Refactoring"]
-            T_Tools["Tools: AST Patch, Slice Reader, Syntax Verifier"]
+            T_Tools["Tools: Dual-Track Patch, Slice Reader, Syntax Verifier"]
             T_Skill3["Skill: Live Web Search Official Docs"]
             T_Reflection["Self-Reflection & Syntax Recovery Loop"]
         end
@@ -50,7 +50,7 @@ graph TD
     EventBus <--> TestAgent
 
     ArchAgent -->|Emits Migration Plan & Task Queue| TransAgent
-    TransAgent -->|Emits Modernized Code Slices| TestAgent
+    TransAgent -->|Emits Modernized Code Slices with Version Tags| TestAgent
     TestAgent -->|Emits Verification & Fidelity Report| EventBus
 
     ArchAgent <--> LLM_Engine
@@ -103,17 +103,19 @@ stateDiagram-v2
         ReadSlice: Read Source Code Slices
         ReadSlice --> FetchDoc
         FetchDoc: Live Web Search Official Docs
-        FetchDoc --> GenPatch
-        GenPatch: Generate Modernized Code via DeepSeek-v4-pro
+        FetchDoc --> AcquireLock
+        AcquireLock: Acquire File Lock & Record vN Snapshot
+        AcquireLock --> GenPatch
+        GenPatch: Generate Dual-Track Patch via DeepSeek-v4-pro
         GenPatch --> ApplyPatch
-        ApplyPatch: Apply AST Code Patch
+        ApplyPatch: Apply AST Patch (Whole-File or Search/Replace)
         ApplyPatch --> VerifySyntax
         VerifySyntax: Verify Syntax & Type Integrity
         VerifySyntax --> FixSyntax: Error Encountered
-        FixSyntax: Self-Reflection & Fix Loop
+        FixSyntax: Auto Rollback to vN & Re-attempt
         FixSyntax --> ApplyPatch
         VerifySyntax --> FinalizeFile: Syntax Passed
-        FinalizeFile: Finalize Modern File
+        FinalizeFile: Commit vN+1 Snapshot & Release Lock
     }
 
     TRANSFORMING --> VERIFYING: All Files Modernized
@@ -131,34 +133,40 @@ stateDiagram-v2
 
     state "Diff Review" as READY_FOR_REVIEW {
         [*] --> StreamDiff
-        StreamDiff: Stream Diff to Monaco Editor
+        StreamDiff: Stream Versioned Diff to Monaco Editor
         StreamDiff --> HumanReview
-        HumanReview: Line-by-Line Human Review
+        HumanReview: Line-by-Line Review & Snapshot Stepping
         HumanReview --> GeneratePR: Accept All
-        HumanReview --> RejectPatch: Partial Rejection
-        RejectPatch: Re-Prompt Transformer Agent
+        HumanReview --> RollbackStep: Rollback to vN
+        RollbackStep --> RePromptTransformer
+        RePromptTransformer: Re-Prompt Transformer Agent
     }
 
-    RejectPatch --> TRANSFORMING
+    RePromptTransformer --> TRANSFORMING
     GeneratePR --> [*]
 ```
 
 ---
 
-## 3. The `grill-me` Architectural Decision Skill
+## 3. Dual-Track Code Patching & Version Snapshot Protocol
 
-When processing legacy systems, significant architectural forks exist where no single "correct" answer exists without business input. The **`grill-me`** skill prevents catastrophic assumption errors by engaging the user at critical junctures.
+To eliminate off-by-one line number hallucinations and support instant rollback, the **Code Transformer Agent** uses a **Dual-Track Code Patching Strategy**:
 
-### Decision Triggers & Examples
-1. **JSP Architecture Fork**:
-   - *Question*: "Should this legacy JSP module be refactored into a decoupled **Spring Boot 3 REST API + Vue 3 Frontend**, or a consolidated **Spring Boot 3 + Thymeleaf MVC** application?"
-   - *Recommendation*: "Spring Boot REST + Vue 3 (Recommended for modern scalability and SPA frontend decoupling)."
-2. **State Management Fork (Vue 2 -> 3)**:
-   - *Question*: "The legacy code relies heavily on global `EventBus` and `Vuex 3`. Migrate to **Pinia** (standard Vue 3 store) or lightweight **Vue Composables**?"
-   - *Recommendation*: "Pinia (Recommended for type safety and DevTools integration)."
-3. **Python Concurrency Fork**:
-   - *Question*: "Legacy Python 2 sync worker detected. Modernize with **`asyncio` + FastAPI** or maintain **Sync Flask + Gunicorn Thread Pool**?"
-   - *Recommendation*: "asyncio + FastAPI (Recommended for high I/O throughput)."
+### 3.1 Dual-Track Patch Specification
+1. **Track A: Whole-File Generation (For Extracted / New Components)**
+   - Used when extracting decoupled controllers, DTO records, Pinia stores, or new TypeScript modules.
+   - Outputs full file content directly into `/target` workspace.
+2. **Track B: Structured Search & Replace Blocks (For Existing File Refactoring)**
+   - Used when modifying legacy utility functions, class methods, or component logic.
+   - Uses strict syntax:
+     ```text
+     <<<<<<< SEARCH
+     String action = request.getParameter("action");
+     =======
+     String action = request.getAction();
+     >>>>>>> REPLACE
+     ```
+   - Processed by a backend Fuzzy Block Matcher in Node 24, avoiding fragile line number indexing.
 
 ---
 
@@ -229,6 +237,26 @@ export type ModernizerSSEEvent =
       timestamp: number;
     }
   | {
+      type: "file_diff_chunk";
+      filePath: string;
+      status: "in_progress" | "completed";
+      patchType: "whole_file" | "search_replace";
+      fileVersion: number;        // e.g. 1, 2, 3
+      previousVersion: number;    // e.g. 0, 1, 2
+      rollbackSupported: boolean;
+      originalContent: string;
+      modifiedContent: string;
+      rationale: string;
+      timestamp: number;
+    }
+  | {
+      type: "file_lock_status";
+      filePath: string;
+      state: "acquired" | "waiting" | "released";
+      heldByAgent: "transformer" | "verifier";
+      timestamp: number;
+    }
+  | {
       type: "doc_search_snippet";
       query: string;
       url: string;
@@ -247,14 +275,6 @@ export type ModernizerSSEEvent =
         recommended?: boolean;
         description: string;
       }>;
-    }
-  | {
-      type: "file_diff_chunk";
-      filePath: string;
-      status: "in_progress" | "completed";
-      originalContent: string;
-      modifiedContent: string;
-      rationale: string;
     }
   | {
       type: "test_suite_result";

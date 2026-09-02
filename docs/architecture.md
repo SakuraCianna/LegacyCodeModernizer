@@ -40,8 +40,12 @@ graph TD
             WM["Session-Isolated Workspace Controller"]
             FS_Source["/workspaces/:id/source (Readonly)"]
             FS_Target["/workspaces/:id/target (Mutable)"]
+            Snapshots["/workspaces/:id/snapshots (Versioned History)"]
+            LockMgr["File Lock & Concurrency Controller"]
             WM --> FS_Source
             WM --> FS_Target
+            WM --> Snapshots
+            WM --> LockMgr
         end
 
         subgraph AgentCore ["Autonomous Agent Orchestrator"]
@@ -126,13 +130,38 @@ sequenceDiagram
 
     WM->>FS: Allocate /workspaces/{sessionId}/source/ (Read-Only)
     WM->>FS: Allocate /workspaces/{sessionId}/target/ (Modernized Output)
+    WM->>FS: Allocate /workspaces/{sessionId}/snapshots/ (Version Control)
     WM-->>API: Workspace Initialized { sessionId, fileTree }
     API-->>UI: 200 OK + Render Dual File Tree
 ```
 
 ---
 
-## 3. AST Toolchain & Static Code Analysis
+## 3. Code Snapshot Versioning & Optimistic Lock Engine
+
+To support one-click rollback in the Monaco Diff editor and prevent race conditions when multiple agent steps touch the same file, the backend maintains a **File-Level Snapshot & Lock Control Protocol**:
+
+```mermaid
+flowchart TD
+    subgraph FileMutationFlow ["File Mutation & Snapshot Workflow"]
+        Req["Transformer Agent Mutation Request"] --> AcquireLock{"Acquire File Lock"}
+        AcquireLock -->|Lock Busy| Wait["Backoff & Retry (Max 3)"]
+        Wait --> AcquireLock
+        AcquireLock -->|Lock Acquired| ReadCurr["Read Current File & Current Version (vN)"]
+        ReadCurr --> Snapshot["Save Snapshot to /snapshots/filePath/vN.snap"]
+        Snapshot --> Apply["Apply Dual-Track Patch (Whole-File or Search/Replace)"]
+        Apply --> ValidateAST{"AST Syntax Check"}
+        ValidateAST -->|Syntax Error| Rollback["Auto Rollback to vN & Increment Retry"]
+        Rollback --> ReleaseLock["Release File Lock"]
+        ValidateAST -->|Syntax OK| BumpVer["Commit Target File as vN+1"]
+        BumpVer --> EmitSSE["Emit file_diff_chunk with version=vN+1"]
+        EmitSSE --> ReleaseLock
+    end
+```
+
+---
+
+## 4. AST Toolchain & Static Code Analysis
 
 The backend integrates specialized Abstract Syntax Tree (AST) parsers to parse, validate, and manipulate code without losing formatting or introducing syntax hallucinations:
 
@@ -174,7 +203,7 @@ flowchart LR
 
 ---
 
-## 4. Frontend Workbench Component Architecture
+## 5. Frontend Workbench Component Architecture
 
 The frontend is modeled after the VS Code workbench to maximize information density and developer familiarity:
 
@@ -200,8 +229,10 @@ graph TB
 
     subgraph CenterEditorComponents ["Editor Views"]
         MonacoDiff["Monaco Side-by-Side Diff Editor"]
+        VersionSelector["File Snapshot Version Switcher (v1, v2...)"]
         RationaleBadge["AI Modification Rationale Tooltips"]
         InlineReview["Accept / Reject Inline Actions"]
+        MonacoDiff --> VersionSelector
     end
 
     subgraph RightSidebarComponents ["Agent Hub Views"]

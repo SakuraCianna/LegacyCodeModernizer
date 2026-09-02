@@ -40,8 +40,12 @@ graph TD
             WM["会话级临时工作区控制器"]
             FS_Source["/workspaces/:id/source (只读原工程)"]
             FS_Target["/workspaces/:id/target (现代化产物)"]
+            Snapshots["/workspaces/:id/snapshots (历史版本快照)"]
+            LockMgr["文件并发锁与版本控制器"]
             WM --> FS_Source
             WM --> FS_Target
+            WM --> Snapshots
+            WM --> LockMgr
         end
 
         subgraph AgentCore ["自主 Agent 协同调度引擎"]
@@ -126,13 +130,38 @@ sequenceDiagram
 
     WM->>FS: 初始化 /workspaces/{sessionId}/source/ (原工程只读目录)
     WM->>FS: 初始化 /workspaces/{sessionId}/target/ (重构产物可写目录)
+    WM->>FS: 初始化 /workspaces/{sessionId}/snapshots/ (历史版本快照目录)
     WM-->>API: 返回工作区初始化状态 { sessionId, fileTree }
     API-->>UI: 200 OK + 渲染双工程对照文件树
 ```
 
 ---
 
-## 3. 多语言 AST 解析与静态分析流水线
+## 3. 代码版本快照与文件并发锁控制引擎
+
+为支持在前端 Monaco Diff 编辑器中进行**任意历史版本一键回退**，并彻底杜绝多个 Agent 或重试循环对同一文件的并发修改冲突，后端内置了**文件级版本快照与并发锁控制协议（OCC）**：
+
+```mermaid
+flowchart TD
+    subgraph FileMutationFlow ["文件修改与版本快照流水线"]
+        Req["Transformer Agent 发起文件修改请求"] --> AcquireLock{"竞争获取文件独占锁"}
+        AcquireLock -->|锁被占用| Wait["退避等待重试 (上限3次)"]
+        Wait --> AcquireLock
+        AcquireLock -->|成功获取锁| ReadCurr["读取目标文件当前内容与版本号 (vN)"]
+        ReadCurr --> Snapshot["自动生成快照 /snapshots/filePath/vN.snap"]
+        Snapshot --> Apply["应用双轨补丁 (新建全量生成 / 局部Search-Replace)"]
+        Apply --> ValidateAST{"AST 语法完整性校验"}
+        ValidateAST -->|语法错误| Rollback["自动回退至快照 vN 并记录失败原因"]
+        Rollback --> ReleaseLock["释放文件独占锁"]
+        ValidateAST -->|语法通过| BumpVer["提交新代码并升级版本号为 vN+1"]
+        BumpVer --> EmitSSE["向前端推送 file_diff_chunk (携带新版本号 vN+1)"]
+        EmitSSE --> ReleaseLock
+    end
+```
+
+---
+
+## 4. 多语言 AST 解析与静态分析流水线
 
 后端结合底层 Tree-Sitter 与专用编译器，实现高保真语法树解析与符号映射：
 
@@ -174,7 +203,7 @@ flowchart LR
 
 ---
 
-## 4. 前端 VS Code 风格工作台组件架构
+## 5. 前端 VS Code 风格工作台组件架构
 
 ```mermaid
 graph TB
@@ -198,8 +227,10 @@ graph TB
 
     subgraph CenterEditorComponents ["中央编辑区子视图"]
         MonacoDiff["Monaco 双栏并排差异对比编辑器"]
+        VersionSelector["版本快照切换器 (v1, v2, v3 一键回退)"]
         RationaleBadge["AI 行级重构原因与改动批注"]
         InlineReview["单行/单函数采纳与驳回控件"]
+        MonacoDiff --> VersionSelector
     end
 
     subgraph RightSidebarComponents ["右侧辅助栏子视图"]
