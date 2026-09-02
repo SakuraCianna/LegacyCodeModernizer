@@ -112,7 +112,7 @@ flowchart TD
 
 ---
 
-## 4. 赛道四：Node CommonJS / 回调地狱 ➔ 原生 ESM & Node.js 24 LTS
+## 4. 赛道四：Node CommonJS / 嵌套回调 ➔ 原生 ESM & Node.js 24 LTS
 
 ```mermaid
 flowchart TD

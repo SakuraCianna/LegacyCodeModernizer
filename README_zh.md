@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>自主驱动的企业级遗留系统现代化重构与智能迁移工作台</strong><br>
-  <em>确保核心业务逻辑零破坏，实现跨生态全仓自动化升级</em>
+  <em>保障核心业务逻辑完整性，实现跨生态全仓自动化升级</em>
 </p>
 
 <p align="center">
@@ -22,16 +22,16 @@
 
 ## 🌟 Agent 开场白与核心定位
 
-> **“专注企业级遗留系统智能现代化改造，深度聚焦 JSP ➔ Java/Spring Boot 生态升级、Python 生态升级、Vue/React 生态升级与 Node 生态升级四大技术赛道。基于 DeepSeek-v4-pro 大模型底座，驱动三 Agent 专家团队、AST 级精准代码转换、官方文档实时联网检索与回归测试沙箱验证，实现业务逻辑零破坏的自动化全仓重构。”**
+> **“专注企业级遗留系统智能现代化改造，深度聚焦 JSP ➔ Java/Spring Boot 生态升级、Python 生态升级、Vue/React 生态升级与 Node 生态升级四大技术赛道。基于 DeepSeek-v4-pro 大模型底座，驱动三 Agent 专家团队、AST 级精准代码转换、官方文档实时联网检索与回归测试沙箱验证，实现业务逻辑等价保真的全仓自动化重构。”**
 
 ---
 
-## 💡 痛点与核心价值
+## 💡 背景与技术挑战
 
-企业老旧代码库（如 JSP 单体模板、Python 2 脚本、Vue 2 Options 组件、Node CommonJS 回调地狱）承载着核心业务，却伴随着沉重的技术债与安全隐患：
-1. **人工重构成本极高**：跨版本、多文件的全仓迁移通常耗费资深工程师数周乃至数月的时间；
-2. **隐式业务逻辑脆弱**：历史边缘场景（Edge Cases）缺少文档与完备测试，人工重写极易漏掉隐式依赖而引发线上事故；
-3. **传统 AI 辅助的局限性**：简单的单次 Prompt 或 Copilot 补全无法理解全仓依赖拓扑，极易幻觉出已弃用的 API，且无法处理大仓跨文件上下文。
+企业老旧代码库（如 JSP 单体模板、Python 2 脚本、Vue 2 Options 组件、Node CommonJS 嵌套回调）承载着核心业务，伴随着技术债与维护成本：
+1. **人工重构成本高昂**：跨版本、多文件的全仓迁移通常耗费资深工程师数周乃至数月的时间；
+2. **隐式业务逻辑脆弱**：历史边缘场景（Edge Cases）缺少文档与完备测试，人工重写易漏掉隐式依赖而引发线上故障；
+3. **传统单次 Prompt 的局限性**：简单的单次 Prompt 无法理解全仓依赖拓扑，易产生已弃用 API 的幻觉，且无法处理大仓跨文件上下文。
 
 **Legacy Code Modernizer** 选用 **DeepSeek-v4-pro** 作为全栈推理底座，结合 **Prompt Caching 前缀锁定**、**确定性 AST 工具链** 与 **轻量测试验证沙箱**，提供开箱即用的专业 VS Code 风格 Web 工作台。
 
@@ -59,7 +59,7 @@ mindmap
       Vuex 迁移至 Pinia / Redux 迁移至 Zustand
     Node.js 生态升级
       CommonJS require 升级至原生 ESM import
-      Callback 回调地狱重构为 Async / Await
+      多层嵌套回调重构为 Async / Await
       老旧 Express 迁移至 Fastify / NestJS
       底层引擎对齐 Node.js 24 LTS
 ```
@@ -69,7 +69,7 @@ mindmap
 | **JSP ➔ Java/Spring Boot** | JSP 标签、Struts、Servlet、Java 8 | Spring Boot 3.x、RESTful API、现代前端组件、Java 21 | 表单标签转现代 DTO、Session 机制转 Token 鉴权、SQL 注入与弃用 API 清理 |
 | **Python 生态升级** | Python 2.7、老旧 Flask/Django、`urllib2`、`six` | Python 3.12+、FastAPI、类型注解 (`typing`)、`asyncio` | 字符串/字节流转换、弃用标准库平滑替换、异步并发重构 |
 | **Vue / React 生态升级** | Vue 2 Options API、React Class 组件、jQuery | Vue 3 `<script setup>`、React 19 Hooks + TypeScript + Tailwind | 响应式语法精准迁移、生命周期钩子对齐、状态管理平滑升级 |
-| **Node.js 生态升级** | CommonJS (`require`)、Callback 地狱、Express 3/4 | 原生 ESM (`import`)、Async/Await、Fastify、Node 24 LTS | 静态模块解析重构、Promise 流程编排、内存泄漏排查 |
+| **Node.js 生态升级** | CommonJS (`require`)、嵌套回调、Express 3/4 | 原生 ESM (`import`)、Async/Await、Fastify、Node 24 LTS | 静态模块解析重构、Promise 流程编排、内存泄漏排查 |
 
 ---
 

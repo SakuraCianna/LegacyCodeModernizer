@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Autonomous AI-Powered Legacy System Modernization & Refactoring Workbench</strong><br>
-  <em>Preserving Core Business Logic with Zero Disruption across Legacy Ecosystems</em>
+  <em>Preserving Core Business Logic Integrity across Legacy Ecosystems</em>
 </p>
 
 <p align="center">
@@ -22,14 +22,14 @@
 
 ## 🌟 Agent Opening Pitch & Core Mission
 
-> **"Dedicated to enterprise-grade intelligent legacy system modernization. Deeply focusing on four core technical tracks: JSP ➔ Java/Spring Boot ecosystem migration, Python ecosystem upgrade, Vue/React modern stack evolution, and Node.js modernization. Powered by an autonomous Tri-Agent engineering team orchestrated by DeepSeek-v4-pro, AST-level precision transformations, live official documentation retrieval, and regression verification to achieve zero-disruption, whole-repository modernization."**
+> **"Dedicated to enterprise-grade intelligent legacy system modernization. Deeply focusing on four core technical tracks: JSP ➔ Java/Spring Boot ecosystem migration, Python ecosystem upgrade, Vue/React modern stack evolution, and Node.js modernization. Powered by an autonomous Tri-Agent engineering team orchestrated by DeepSeek-v4-pro, AST-level precision transformations, live official documentation retrieval, and regression verification to achieve rigorous, high-fidelity whole-repository modernization."**
 
 ---
 
-## 💡 Overview & The Problem
+## 💡 Overview & Technical Challenges
 
-Enterprise legacy codebases (e.g., monolithic JSP applications, Python 2 scripts, Vue 2 Options API components, legacy CommonJS callback pyramids) represent core business assets, yet they incur enormous technical debt and security vulnerabilities:
-1. **Manual Refactoring is Prohibitive**: Cross-version multi-file migrations take weeks or months of senior developer effort.
+Enterprise legacy codebases (e.g., monolithic JSP applications, Python 2 scripts, Vue 2 Options API components, legacy CommonJS nested callback pyramids) represent core business assets, yet they incur technical debt and maintenance overhead:
+1. **Manual Refactoring is Costly**: Cross-version multi-file migrations take weeks or months of senior developer effort.
 2. **Implicit Business Logic Fragility**: Undocumented edge cases and implicit dependencies often break during manual rewrites.
 3. **Naive LLM Limitations**: Simple single-pass prompting lacks global dependency awareness, frequently hallucinates deprecated APIs, and fails to handle whole-repository context.
 
@@ -43,33 +43,33 @@ Enterprise legacy codebases (e.g., monolithic JSP applications, Python 2 scripts
 mindmap
   root((Legacy Code Modernizer))
     JSP to Java / Spring Boot
-      JSP Tags to Modern DTOs & REST APIs
-      Struts/Servlets to Spring Boot 3.x
-      Session Management to Stateless JWT / Security
-      Java 8 to Java 21 LTS
-    Python Ecosystem
-      Python 2.7 to Python 3.12+
+      JSP Form Tags to Modern DTOs and REST APIs
+      Struts/Servlet to Spring Boot 3.x
+      Session State to Stateless JWT / Spring Security
+      Java 8 Upgrade to Java 21 LTS
+    Python Ecosystem Upgrade
+      Python 2.7 Upgrade to Python 3.12+
       Legacy Flask/Django to FastAPI/Modern Django
-      Type Annotations & Modern Asyncio
-      Six & urllib2 Deprecation Purge
-    Vue / React Ecosystem
+      Type Annotations Injection & Asyncio Modernization
+      Clean up Deprecated Libraries (six, urllib2)
+    Vue / React Ecosystem Evolution
       Vue 2 Options API to Vue 3 Script Setup & TS
-      React Legacy Class Components to React 19 Hooks
-      jQuery DOM Manipulation to Declarative State
+      Legacy React Class Components to React 19 Hooks
+      jQuery Imperative DOM to Declarative State
       Vuex to Pinia / Redux to Zustand
-    Node.js Ecosystem
+    Node.js Modernization
       CommonJS require to Native ESM import
-      Callback Pyramids to Async / Await
-      Express Legacy to Fastify / NestJS
-      Engine Upgrade to Node.js 24 LTS
+      Nested Callbacks to Async / Await
+      Legacy Express to Fastify / NestJS
+      Alignment with Node.js 24 LTS Runtime
 ```
 
-| Modernization Track | Legacy Source Stack | Target Modern Stack | Core Transformation & Business Guardrails |
+| Modernization Track | Typical Legacy Source Stack | Target Modern Stack | Core Transformation & Fidelity Safeguard |
 | :--- | :--- | :--- | :--- |
-| **JSP ➔ Java/Spring Boot** | JSP Custom Tags, Struts, Servlets, Java 8 | Spring Boot 3.x, REST APIs, Modern Web Frontend, Java 21 | Form tags to DTO bindings, Session to Token auth, SQL injection cleanup |
-| **Python Ecosystem** | Python 2.7, Old Flask/Django, `urllib2`, `six` | Python 3.12+, FastAPI, Type Hints (`typing`), `asyncio` | String/bytes stream refactoring, deprecated standard lib substitutions |
-| **Vue / React Ecosystem** | Vue 2 Options API, React Class Components, jQuery | Vue 3 `<script setup>`, React 19 Hooks + TypeScript + Tailwind | Reactive state mappings, lifecycle hooks translation, clean composables |
-| **Node.js Ecosystem** | CommonJS (`require`), Callback Hell, Express 3/4 | Native ESM (`import`), Async/Await, Fastify, Node 24 LTS | Static module resolution, Promise orchestration, memory leak diagnostics |
+| **JSP ➔ Java/Spring Boot** | JSP Tags, Struts, Servlets, Java 8 | Spring Boot 3.x, RESTful APIs, Modern Components, Java 21 | Form tags to DTOs, Session to Token auth, SQL injection & deprecated API remediation |
+| **Python Ecosystem** | Python 2.7, Legacy Flask/Django, `urllib2`, `six` | Python 3.12+, FastAPI, Type Annotations (`typing`), `asyncio` | String/bytes normalization, deprecated standard library replacement, async concurrency |
+| **Vue / React Evolution** | Vue 2 Options API, React Class Components, jQuery | Vue 3 `<script setup>`, React 19 Hooks + TypeScript + Tailwind | Reactive syntax conversion, lifecycle alignment, state store migration |
+| **Node.js Ecosystem** | CommonJS (`require`), Nested Callbacks, Express 3/4 | Native ESM (`import`), Async/Await, Fastify, Node 24 LTS | Static module resolution, Promise orchestration, memory leak diagnostics |
 
 ---
 
