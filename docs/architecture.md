@@ -16,10 +16,12 @@ graph TD
         UI["React 19 + Vite Application"]
         Panels["react-resizable-panels Layout Engine"]
         Monaco["Monaco Diff & Code Editor Engine"]
+        LivePreview["Isolated Iframe Live Rendering Sandbox"]
         Xterm["xterm.js Streaming Console"]
         Flow["XYFlow Business Dependency Visualizer"]
         UI --> Panels
         Panels --> Monaco
+        Panels --> LivePreview
         Panels --> Xterm
         Panels --> Flow
     end
@@ -75,20 +77,19 @@ graph TD
             VueCompiler["vue-template-compiler & @vue/compiler-sfc"]
         end
 
-        subgraph VerificationSandbox ["Execution & Test Runner Sandbox"]
-            Runner["Process Execution & Test Sandbox"]
-            Vitest["Vitest / Jest Runner"]
-            PyTest["PyTest Python Runner"]
-            JUnit["JUnit 5 Test Harness"]
-            Runner --> Vitest
-            Runner --> PyTest
-            Runner --> JUnit
+        subgraph TieredSandbox ["Tiered Verification Sandbox"]
+            WorkerPool["Node 24 Worker Threads (In-Process Vitest)"]
+            SubprocessRunner["Guarded Subprocess (Java/PyTest with 10s Timeout)"]
+            MicroVMAdapter["Pluggable MicroVM Adapter (E2B / Firecracker)"]
+            TieredSandbox --> WorkerPool
+            TieredSandbox --> SubprocessRunner
+            TieredSandbox --> MicroVMAdapter
         end
 
         Gateway --> WM
         Gateway --> Orch
         Orch --> ASTToolchain
-        Orch --> VerificationSandbox
+        Orch --> TieredSandbox
     end
 
     subgraph CloudVCS ["External Ecosystems & VCS"]
@@ -161,7 +162,52 @@ flowchart TD
 
 ---
 
-## 4. AST Toolchain & Static Code Analysis
+## 4. Tiered Sandbox & Live Rendering Architecture (Claude-Inspired)
+
+Inspired by Anthropic Claude's Artifacts and Cloud Sandbox architectures, execution is tiered into browser-side zero-latency isolation and backend resource-guarded runners:
+
+```mermaid
+graph TD
+    subgraph Tier1_Client ["Tier 1: Client-Side Iframe Sandbox (Live UI Preview)"]
+        Iframe["Isolated iframe (sandbox='allow-scripts')"]
+        EsbuildWasm["esbuild-wasm / Babel In-Browser Bundler"]
+        EsmCDN["ESM CDN Imports (esm.sh / unpkg)"]
+        Iframe --> EsbuildWasm
+        EsbuildWasm --> EsmCDN
+    end
+
+    subgraph Tier2_Backend ["Tier 2: Node 24 In-Process & Guarded Runner (Testing)"]
+        NodeWorkers["Node.js 24 worker_threads (In-Process Vitest)"]
+        GuardedProcess["Subprocess Runner with Strict Resource Caps"]
+        TimeoutGuard["10-Second Hard Timeout (SIGKILL)"]
+        MemoryCap["512MB RAM Cgroups Limit"]
+        MockStubs["In-Memory Mock Fixtures (respx / H2 / MockMvc)"]
+        GuardedProcess --> TimeoutGuard
+        GuardedProcess --> MemoryCap
+        GuardedProcess --> MockStubs
+    end
+
+    subgraph Tier3_Enterprise ["Tier 3: Cloud MicroVM Interface (Pluggable)"]
+        E2B_Adapter["E2B / Firecracker MicroVM Gateway (5ms Cold Boot)"]
+        FullCLI["Full Linux Shell & Sandbox Daemon Execution"]
+        E2B_Adapter --> FullCLI
+    end
+```
+
+### 4.1 Client-Side Live Component Preview
+- Modernized Vue 3 and React 19 components render inside a strictly isolated `<iframe sandbox="allow-scripts allow-forms">` without `allow-same-origin`.
+- Dependencies (Tailwind, Lucide icons, Vue, React) are dynamically imported via `https://esm.sh`, providing instant visual verification of zero UI disruption.
+
+### 4.2 Backend Test Execution Guardrails
+- **Vitest In-Process Runner**: JS/TS tests run within Node.js 24 `worker_threads` with zero process-spawn overhead.
+- **Java / Python Subprocess Guard**:
+  - **10s Hard Timeout**: Kills runaway loops instantly.
+  - **Memory Limits**: Caps heap allocations at 512MB.
+  - **Mock Fixtures**: Injects mock network and in-memory database adapters to run tests without external database dependencies.
+
+---
+
+## 5. AST Toolchain & Static Code Analysis
 
 The backend integrates specialized Abstract Syntax Tree (AST) parsers to parse, validate, and manipulate code without losing formatting or introducing syntax hallucinations:
 
@@ -203,7 +249,7 @@ flowchart LR
 
 ---
 
-## 5. Frontend Workbench Component Architecture
+## 6. Frontend Workbench Component Architecture
 
 The frontend is modeled after the VS Code workbench to maximize information density and developer familiarity:
 
@@ -229,6 +275,7 @@ graph TB
 
     subgraph CenterEditorComponents ["Editor Views"]
         MonacoDiff["Monaco Side-by-Side Diff Editor"]
+        LiveSandboxView["Iframe Live UI Preview Sandbox"]
         VersionSelector["File Snapshot Version Switcher (v1, v2...)"]
         RationaleBadge["AI Modification Rationale Tooltips"]
         InlineReview["Accept / Reject Inline Actions"]

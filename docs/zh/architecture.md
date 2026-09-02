@@ -16,10 +16,12 @@ graph TD
         UI["React 19 + Vite 现代化应用"]
         Panels["react-resizable-panels 布局引擎"]
         Monaco["Monaco Diff 双栏差异编辑器"]
+        LivePreview["iframe 独立实时渲染沙箱"]
         Xterm["xterm.js 实时流式控制台"]
         Flow["XYFlow 业务依赖拓扑图"]
         UI --> Panels
         Panels --> Monaco
+        Panels --> LivePreview
         Panels --> Xterm
         Panels --> Flow
     end
@@ -75,20 +77,19 @@ graph TD
             VueCompiler["vue-template-compiler 与 @vue/compiler-sfc"]
         end
 
-        subgraph VerificationSandbox ["轻量测试与验证沙箱"]
-            Runner["进程沙箱与测试执行器"]
-            Vitest["Vitest / Jest 运行器"]
-            PyTest["PyTest Python 运行器"]
-            JUnit["JUnit 5 测试套件驱动"]
-            Runner --> Vitest
-            Runner --> PyTest
-            Runner --> JUnit
+        subgraph TieredSandbox ["分层测试与验证沙箱"]
+            WorkerPool["Node 24 Worker Threads (进程内 Vitest 驱动)"]
+            SubprocessRunner["受限子进程 (Java/PyTest 10秒超时熔断)"]
+            MicroVMAdapter["可插拔云端 MicroVM 接口 (E2B / Firecracker)"]
+            TieredSandbox --> WorkerPool
+            TieredSandbox --> SubprocessRunner
+            TieredSandbox --> MicroVMAdapter
         end
 
         Gateway --> WM
         Gateway --> Orch
         Orch --> ASTToolchain
-        Orch --> VerificationSandbox
+        Orch --> TieredSandbox
     end
 
     subgraph CloudVCS ["外部生态与代码托管平台"]
@@ -161,7 +162,52 @@ flowchart TD
 
 ---
 
-## 4. 多语言 AST 解析与静态分析流水线
+## 4. 分层执行与实时渲染沙箱架构 (借鉴 Claude Artifacts)
+
+借鉴 Anthropic Claude Artifacts 与 MicroVM 沙箱设计，系统将代码执行划分为浏览器端零延迟渲染与服务端资源受限测试双层沙箱：
+
+```mermaid
+graph TD
+    subgraph Tier1_Client ["第 1 层：前端 iframe 隔离渲染沙箱 (现代组件实时预览)"]
+        Iframe["独立 iframe (sandbox='allow-scripts allow-forms')"]
+        EsbuildWasm["esbuild-wasm / Babel 浏览器端毫秒级编译"]
+        EsmCDN["ESM CDN 模块动态加载 (esm.sh / unpkg)"]
+        Iframe --> EsbuildWasm
+        EsbuildWasm --> EsmCDN
+    end
+
+    subgraph Tier2_Backend ["第 2 层：Node 24 原生线程与受限子进程 (测试驱动)"]
+        NodeWorkers["Node.js 24 worker_threads (内存级 Vitest 驱动)"]
+        GuardedProcess["受限子进程 (执行 Java / PyTest)"]
+        TimeoutGuard["10秒硬超时熔断 (SIGKILL)"]
+        MemoryCap["512MB 内存上限约束"]
+        MockStubs["内存级 Mock 桩 (respx / H2 / MockMvc)"]
+        GuardedProcess --> TimeoutGuard
+        GuardedProcess --> MemoryCap
+        GuardedProcess --> MockStubs
+    end
+
+    subgraph Tier3_Enterprise ["第 3 层：企业级云端 MicroVM 接口 (可插拔扩展)"]
+        E2B_Adapter["E2B / Firecracker MicroVM 网关 (5ms 极速冷启动)"]
+        FullCLI["完整 Linux Shell 与沙箱守护进程"]
+        E2B_Adapter --> FullCLI
+    end
+```
+
+### 4.1 前端 UI 实时渲染沙箱
+- 重构后的 Vue 3 与 React 19 组件直接在 `<iframe sandbox="allow-scripts allow-forms">`（不开放 `allow-same-origin`）中安全运行；
+- 依赖项（Tailwind、Lucide 图标、Vue 3、React）通过 `esm.sh` CDN 动态按需加载，无需本地安装即可直观验证“UI 视觉与交互零破坏”。
+
+### 4.2 后端测试执行与熔断保护
+- **Vitest 进程内执行器**：JS/TS 测试用例直接在 Node.js 24 `worker_threads` 内存线程中秒级运行，零进程开销；
+- **Java / Python 子进程守卫**：
+  - **10 秒硬超时熔断**：防止死循环阻塞测试流水线；
+  - **512MB 内存限制**：防止堆内存溢出；
+  - **Mock 隔离桩**：全量注入网络与内存数据库桩，无需外部复杂数据库即可独立完成测试回归。
+
+---
+
+## 5. 多语言 AST 解析与静态分析流水线
 
 后端结合底层 Tree-Sitter 与专用编译器，实现高保真语法树解析与符号映射：
 
@@ -203,7 +249,7 @@ flowchart LR
 
 ---
 
-## 5. 前端 VS Code 风格工作台组件架构
+## 6. 前端 VS Code 风格工作台组件架构
 
 ```mermaid
 graph TB
@@ -227,6 +273,7 @@ graph TB
 
     subgraph CenterEditorComponents ["中央编辑区子视图"]
         MonacoDiff["Monaco 双栏并排差异对比编辑器"]
+        LiveSandboxView["iframe 现代化组件实时预览沙箱"]
         VersionSelector["版本快照切换器 (v1, v2, v3 一键回退)"]
         RationaleBadge["AI 行级重构原因与改动批注"]
         InlineReview["单行/单函数采纳与驳回控件"]
