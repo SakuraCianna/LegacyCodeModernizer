@@ -38,7 +38,7 @@ flowchart TD
 
     subgraph LLM_Engine ["DeepSeek-v4-pro Inference Layer"]
         Cache["Prompt Caching (Prefix Lock)"]
-        Gateway["OpenAI-Compatible Gateway"]
+        Gateway["OpenAI-Compatible Gateway + Fallback Relay"]
         Cache --- Gateway
     end
 
@@ -77,7 +77,7 @@ stateDiagram-v2
     SCANNING --> GRILL_ME_INTERVIEW: Major Decision Ambiguity Detected
     state "Decision Interview (grill-me)" as GRILL_ME_INTERVIEW {
         [*] --> EmitCard
-        EmitCard: Emit Structured Decision Card
+        EmitCard: Emit Multi-Option Tradeoff Card
         EmitCard --> AwaitChoice
         AwaitChoice: Await User Selection
         AwaitChoice --> FreezePlan
@@ -91,7 +91,7 @@ stateDiagram-v2
         [*] --> TopoSort
         TopoSort: Bottom-Up Topological Sort
         TopoSort --> QueueTasks
-        QueueTasks: Queue Migration Tasks
+        QueueTasks: Queue Migration Tasks in SQLite
     }
 
     DISPATCH_PLAN --> TRANSFORMING
@@ -162,24 +162,90 @@ stateDiagram-v2
 
 ---
 
-## 3. Pre-Flight CI Dry-Run & Eliminating AI CI Failures
+## 3. The `grill-me` Architectural Decision Skill with Pros/Cons Tradeoff Matrix
 
-A frequent failure mode in autonomous coding agents is that generated code runs locally but fails when pushed to GitHub Actions CI/CD. The **Verifier Agent** eliminates this via a deterministic **Pre-Flight CI Dry-Run**:
+When processing legacy systems, significant architectural forks exist where multiple modernization paths are viable. The **`grill-me`** skill prevents assumption errors by presenting developers with a **comprehensive comparative matrix detailing pros, cons, long-term maintenance costs, and architectural tradeoffs** for each option:
 
-### 3.1 Four Root Causes of AI CI Failures & Solutions
+### 3.1 Architectural Tradeoff Examples
+
+#### Case 1: JSP Monolith Modernization Fork
+| Candidate Option | Recommendation | Pros (Advantages) | Cons (Disadvantages) | Ideal Use Case |
+| :--- | :---: | :--- | :--- | :--- |
+| **Option A: Spring Boot 3 REST + Vue 3 SPA** | **(Recommended)** | • Complete frontend/backend decoupling<br>• High UI interactivity & modern component ecosystem<br>• Scalable for future mobile/third-party API consumers | • Requires separate frontend build step<br>• Stateless JWT authentication rewrite required | Long-term enterprise apps requiring high scalability & modern UX |
+| **Option B: Spring Boot 3 + Thymeleaf Template** | Alternative | • Single-repo monolithic build<br>• Preserves server-side session mental model<br>• Fast zero-build deployment | • Coupled server rendering<br>• Limited dynamic UI interactivity<br>• Harder to migrate to mobile clients | Internal admin tools or low-maintenance utility services |
+| **Option C: Quarkus 3 + React 19 SPA** | Alternative | • Ultra-low memory & fast GraalVM native boot<br>• Modern reactive backend | • Steeper learning curve for traditional Spring developers | Cloud-native serverless or microservice deployments |
+
+#### Case 2: Vue 2 State Management Migration Fork
+| Candidate Option | Recommendation | Pros (Advantages) | Cons (Disadvantages) | Ideal Use Case |
+| :--- | :---: | :--- | :--- | :--- |
+| **Option A: Pinia Official Store** | **(Recommended)** | • First-class TypeScript autocompletion<br>• Vue DevTools time-travel debugging<br>• Vue 3 official standard | • Slight boilerplate for simple local states | Complex applications with cross-component global state |
+| **Option B: Vue 3 Composition Composables** | Alternative | • Zero extra library dependencies<br>• Extremely lightweight & tree-shakeable | • Lacks built-in devtools inspection<br>• Requires manual singleton state design | Small to medium projects with isolated state slices |
+
+---
+
+## 4. End-to-End Resilience & Fault-Tolerance Architecture
+
+To handle unstable network connections, client disconnects, LLM rate limits, and unexpected backend process restarts, the system incorporates a **4-Layer Fault-Tolerance Engine**:
+
+```mermaid
+flowchart TD
+    subgraph Layer1 ["1. Client SSE Resilient Stream"]
+        Ping["15s Heartbeat Ping/Pong Keepalive"]
+        LastID["Last-Event-ID Header Reconnect Tracking"]
+        OfflineQueue["Frontend LocalStorage Event Buffer"]
+        Ping --- LastID --- OfflineQueue
+    end
+
+    subgraph Layer2 ["2. LLM Gateway Failover & Circuit Breaker"]
+        Retry["3-Tier Exponential Backoff with Jitter (1s, 2s, 4s)"]
+        Fallback["Secondary LLM Provider Auto-Switching"]
+        Breaker["Circuit Breaker (Prevents Cascade Freezes)"]
+        Retry --- Fallback --- Breaker
+    end
+
+    subgraph Layer3 ["3. Crash-Safe SQLite Task Checkpointing"]
+        Tx["Transactional State Persistence"]
+        AutoResume["Auto-Resume from Last Snapshot vN on Restart"]
+        Tx --- AutoResume
+    end
+
+    subgraph Layer4 ["4. Optimistic File Concurrency Control (OCC)"]
+        Lock["TTL-Guarded Exclusive File Locks (Auto-Expire 30s)"]
+        Rollback["Zero-Data-Loss Instant Snapshot Rollback"]
+        Lock --- Rollback
+    end
+
+    Layer1 <--> Layer2
+    Layer2 <--> Layer3
+    Layer3 <--> Layer4
+```
+
+### 4.1 SSE Connection Resiliency & Replay Protocol
+- **Heartbeat Keepalive**: Fastify pushes `:ping` comments every 15 seconds to prevent browser/proxy connection timeouts.
+- **`Last-Event-ID` Event Replay**: When a developer's browser disconnects (e.g. Wi-Fi switch, laptop lid closed) and reconnects, the client sends `Last-Event-ID: <last_seq>`. The backend replays all unreceived events directly from SQLite, guaranteeing **zero lost diff chunks or terminal logs**.
+
+### 4.2 LLM Gateway Fault-Tolerance
+- **Exponential Backoff with Jitter**: Automatically retries 429 Rate Limits and 5xx Gateway errors with randomized jitter.
+- **Failover Provider Relay**: If primary DeepSeek-v4-pro endpoint fails for 3 consecutive attempts, traffic is seamlessly routed to the configured backup provider.
+
+### 4.3 Crash-Safe Workspace Auto-Resume
+- Every file migration and AST transformation step is recorded in SQLite.
+- If the backend crashes or the machine is restarted mid-migration, upon reboot the server scans for `status = 'in_progress'` workspaces, loads the last valid snapshot `vN`, and **automatically resumes the remaining task queue without re-running completed files**.
+
+---
+
+## 5. Pre-Flight CI Dry-Run & Eliminating AI CI Failures
 
 | Root Cause of CI Failure | Real-World Manifestation | Modernizer Deterministic Defense |
 | :--- | :--- | :--- |
 | **1. File Path Case-Sensitivity** | Windows is case-insensitive (`import './user'` matches `User.ts`), but Linux CI (`ubuntu-latest`) crashes with `Module not found`. | **AST Path Normalizer**: Audits all relative import paths against exact disk casing before submission. |
-| **2. Unpinned Dependencies** | CI `npm install` picks up fresh breaking minor versions not present during generation. | **Deterministic Lockfile Generator**: Generates pinned `package-lock.json` / `pnpm-lock.yaml` with frozen versions. |
+| **2. Dependency Version Drift** | CI `npm install` picks up fresh breaking minor versions not present during generation. | **Deterministic Lockfile Generator**: Generates pinned `package-lock.json` / `pnpm-lock.yaml` with frozen versions. |
 | **3. Strict Linter / Typecheck Errors** | CI enforces `tsc --noEmit` and `eslint --max-warnings=0`; raw LLMs often emit implicit `any` or unused imports. | **Local Typecheck Dry-Run**: Runs `tsc --noEmit` in sandbox; automatically re-prompts Transformer Agent on errors. |
 | **4. Flaky Async Test Timers** | Tests relying on arbitrary `sleep(500)` fail on constrained CI CPU cores. | **Deterministic Test Harness**: Uses Vitest `vi.waitFor` and MockMvc asynchronous latch barriers. |
 
 ---
 
-## 4. Full-Asset Deliverable Pipeline
-
-When the user accepts modernizations, the system compiles a complete **Production-Ready Deliverable Package**:
+## 6. Full-Asset Deliverable Pipeline
 
 ```mermaid
 graph LR
@@ -190,36 +256,6 @@ graph LR
         CI["4. .github/workflows/ci.yml (Pre-Verified CI Pipeline)"]
     end
 ```
-
----
-
-## 5. Dual-Track Code Patching & Version Snapshot Protocol
-
-To eliminate off-by-one line number hallucinations and support instant rollback, the **Code Transformer Agent** uses a **Dual-Track Code Patching Strategy**:
-
-### 5.1 Dual-Track Patch Specification
-1. **Track A: Whole-File Generation (For Extracted / New Components)**: Outputs full file content directly into `/target` workspace.
-2. **Track B: Structured Search & Replace Blocks (For Existing File Refactoring)**:
-   ```text
-   <<<<<<< SEARCH
-   String action = request.getParameter("action");
-   =======
-   String action = request.getAction();
-   >>>>>>> REPLACE
-   ```
-   Processed by a backend Fuzzy Block Matcher in Node 24, avoiding fragile line number indexing.
-
----
-
-## 6. DeepSeek-v4-pro Inference Strategy & Optimization
-
-### 6.1 Tri-Agent Inference Parameter Matrix
-
-| Agent Role | Primary Objective | Temperature | Top_P | Max Tokens | Reasoning Mode | Rationale |
-| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| 🧠 **Architect Agent** | Global dependency planning, domain modeling, `grill-me` | `0.2` | `0.95` | `8,192` | Enabled (Thinking Mode) | High reasoning depth, strictly ordered task queues |
-| 🛠️ **Transformer Agent** | AST code rewrite, surgical patch creation, self-healing | `0.0` | `1.0` | `16,384` | Precision Coding Mode | **Zero randomness**, eliminates deprecated API hallucinations |
-| 🧪 **Verifier Agent** | Test case synthesis, CI dry-run, assertion checking | `0.1` | `0.9` | `8,192` | Strict Validation Mode | Comprehensive assertion coverage and logic preservation |
 
 ---
 
@@ -276,6 +312,21 @@ export type ModernizerSSEEvent =
       status: "running" | "passed" | "failed";
       errorLogs?: string;
       timestamp: number;
+    }
+  | {
+      type: "grill_me_question";
+      questionId: string;
+      title: string;
+      context: string;
+      options: Array<{
+        id: string;
+        label: string;
+        recommended?: boolean;
+        description: string;
+        pros: string[];           // ✅ Explicit Pros
+        cons: string[];           // ✅ Explicit Cons
+        tradeoffs: string;        // ✅ Comparative Tradeoff summary
+      }>;
     }
   | {
       type: "test_suite_result";

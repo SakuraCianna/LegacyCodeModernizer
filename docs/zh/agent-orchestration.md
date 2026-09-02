@@ -38,7 +38,7 @@ flowchart TD
 
     subgraph LLM_Engine ["DeepSeek-v4-pro 推理底座"]
         Cache["Prompt Caching 静态前缀锁定"]
-        Gateway["OpenAI-Compatible 统一网关"]
+        Gateway["OpenAI-Compatible 统一网关 + 容灾备用通道"]
         Cache --- Gateway
     end
 
@@ -77,7 +77,7 @@ stateDiagram-v2
     SCANNING --> GRILL_ME_INTERVIEW: 检测到重大架构决策分歧
     state "架构决策追问 (grill-me)" as GRILL_ME_INTERVIEW {
         [*] --> EmitCard
-        EmitCard: 弹出结构化决策卡片
+        EmitCard: 弹出多方案优缺点横向对比卡片
         EmitCard --> AwaitChoice
         AwaitChoice: 等待用户选择确认
         AwaitChoice --> FreezePlan
@@ -91,7 +91,7 @@ stateDiagram-v2
         [*] --> TopoSort
         TopoSort: 自底向上拓扑排序
         TopoSort --> QueueTasks
-        QueueTasks: 分发重构任务队列
+        QueueTasks: 分发重构任务队列入库 SQLite
     }
 
     DISPATCH_PLAN --> TRANSFORMING
@@ -162,11 +162,79 @@ stateDiagram-v2
 
 ---
 
-## 3. 本地 CI 预检机制（解决 AI 代码无法通过 CI 工作流的行业通病）
+## 3. `grill-me` 架构决策追问机制与方案优缺点横向对比表
 
-在实际使用大模型辅助编程时，代码在本地看似能跑但提交到 GitHub Actions CI 却经常报错失败。**Verifier Agent** 内置了**本地 CI 预检沙箱（Pre-Flight CI Dry-Run）**，在代码交付前逐一攻克四大失败根因：
+在处理老旧系统时，常常存在多条可选的现代化演进路径。内置的 **`grill-me`** 技能在追问用户时，会主动呈现**候选方案优缺点横向对比表（Pros & Cons Matrix）**，列明各项方案的优势、劣势、演进成本及适用场景：
 
-### 3.1 AI 代码导致 CI 失败的四大根因与确定性防御方案
+### 3.1 核心架构分支横向对比案例
+
+#### 案例 1：JSP 单体工程现代化重构分支
+| 候选技术方案 | 推荐标记 | 方案优点 (Pros) | 方案缺点 (Cons) | 最佳适用场景 |
+| :--- | :---: | :--- | :--- | :--- |
+| **方案 A：Spring Boot 3 REST + Vue 3 SPA** | **(推荐)** | • 彻底前后端解耦<br>• 现代化组件交互与流畅 SPA 体验<br>• 便于未来对接移动端与开放平台 | • 需独立的前端编译与构建流水线<br>• Session 需彻底改造为无状态 JWT | 长期演进、重视用户体验与高扩展性的核心系统 |
+| **方案 B：Spring Boot 3 + Thymeleaf 模板** | 备选 | • 单仓库单体工程，零前端构建依赖<br>• 保留原有服务端渲染会话心智<br>• 极速部署与运行 | • 服务端强耦合渲染<br>• 动态复杂交互受限<br>• 难以平滑适配多端 API | 内部运维后台、低维护频率的工具型系统 |
+| **方案 C：Quarkus 3 + React 19 SPA** | 备选 | • 极低内存占用与 GraalVM 原生秒级启动<br>• 现代化反应式后端 | • 传统 Spring 生态团队学习成本相对较高 | 云原生 Serverless 或高密度微服务架构 |
+
+#### 案例 2：Vue 2 状态管理升级分支
+| 候选技术方案 | 推荐标记 | 方案优点 (Pros) | 方案缺点 (Cons) | 最佳适用场景 |
+| :--- | :---: | :--- | :--- | :--- |
+| **方案 A：Pinia 官方状态树** | **(推荐)** | • 完整的 TypeScript 类型推导与自动补全<br>• 支持 Vue DevTools 时间旅行调试<br>• Vue 3 官方推荐标准 | • 极其简单的小状态会有轻微样板代码 | 具备跨组件、多模块复杂全局状态的大型应用 |
+| **方案 B：Vue 3 响应式 Composables** | 备选 | • 零第三方库依赖，纯原生组合式 API<br>• 极轻量，Tree-shaking 友好 | • 缺乏开箱即用的 DevTools 集中调试视图<br>• 需自行设计单例状态模式 | 中小型项目、状态边界清晰的局部模块 |
+
+---
+
+## 4. 全链路容灾、断网自愈与故障恢复架构 (Resilience Engine)
+
+针对网络抖动、客户端掉线、LLM 服务端限流超时及后端服务崩溃重启等不稳定因素，系统构建了**四层容灾防护引擎**：
+
+```mermaid
+flowchart TD
+    subgraph Layer1 ["1. 客户端 SSE 弹性重连流"]
+        Ping["15秒心跳 Ping/Pong 保活机制"]
+        LastID["Last-Event-ID 请求头断点续传"]
+        OfflineQueue["前端 LocalStorage 离线事件缓存"]
+        Ping --- LastID --- OfflineQueue
+    end
+
+    subgraph Layer2 ["2. LLM 网关容灾与熔断降级"]
+        Retry["指数退避重试 (带抖动 Jitter: 1s, 2s, 4s)"]
+        Fallback["备用大模型 Provider 自动热切换"]
+        Breaker["熔断器机制 (防止级联死锁)"]
+        Retry --- Fallback --- Breaker
+    end
+
+    subgraph Layer3 ["3. SQLite 事务级崩溃恢复 (Crash-Safe)"]
+        Tx["任务状态持久化事务"]
+        AutoResume["重启自动加载最新快照 vN 并断点续跑"]
+        Tx --- AutoResume
+    end
+
+    subgraph Layer4 ["4. 乐观文件并发锁控制 (OCC)"]
+        Lock["带 TTL 的独占文件锁 (超时30秒自动释放)"]
+        Rollback["零数据丢失的秒级快照回滚机制"]
+        Lock --- Rollback
+    end
+
+    Layer1 <--> Layer2
+    Layer2 <--> Layer3
+    Layer3 <--> Layer4
+```
+
+### 4.1 SSE 弹性流式断点续传（解决掉线问题）
+- **心跳保活**：Fastify 服务端每 15 秒向客户端推送 `:ping` 心跳注释，防止反向代理（Nginx/Cloudflare）或浏览器因长时间无数据而切断连接。
+- **`Last-Event-ID` 历史回放**：当浏览器由于 Wi-Fi 切换或电脑休眠导致断连并重连时，客户端自动携带 `Last-Event-ID: <事件序列号>`。后端直接从 SQLite 事件队列中**重放断连期间的所有丢失事件**，确保前端终端日志和 Diff 差异绝对不丢包。
+
+### 4.2 LLM 推理网关容灾（解决大模型超时/挂掉问题）
+- **指数退避重试（Exponential Backoff with Jitter）**：遇到大模型 429 限流或 5xx 网关超时，自动按 1s、2s、4s 指数退避并在区间内加入随机抖动，防止惊群重试；
+- **备用 Provider 热切换**：连续重试 3 次失败后，系统自动透明切换至备用代理通道（如 Azure OpenAI 或 OpenRouter 降级通道），保证重构流水线不中断。
+
+### 4.3 进程崩溃与断电自愈（解决后端挂掉问题）
+- 所有的任务队列分发、文件重构进度均以 ACID 事务记录在 SQLite 中；
+- 若后端进程意外崩溃或机器断电，重启后自动扫描 `status = 'in_progress'` 的工作区，加载该文件最近一次校验通过的 `vN` 快照，**自动从中断的文件节点继续向下执行，无需推倒重来**。
+
+---
+
+## 5. 本地 CI 预检机制（解决 AI 代码无法通过 CI 工作流的行业通病）
 
 | CI 失败根因 | 典型现象 | Modernizer 确定性防御机制 |
 | :--- | :--- | :--- |
@@ -177,9 +245,7 @@ stateDiagram-v2
 
 ---
 
-## 4. 全要素交付成果流水线 (Full-Asset Deliverables)
-
-当重构成果通过审查后，系统打包输出一套符合顶级开源标准的交付物：
+## 6. 全要素交付成果流水线 (Full-Asset Deliverables)
 
 ```mermaid
 graph LR
@@ -190,32 +256,6 @@ graph LR
         CI["4. .github/workflows/ci.yml (已预检通过的 CI 流水线)"]
     end
 ```
-
----
-
-## 5. 双轨代码补丁写入与版本快照协议 (Dual-Track Patching)
-
-### 5.1 双轨补丁机制设计
-1. **轨道 A：新建/解耦文件走全量生成（Whole-File Generation）**：直接输出至 `/target` 目录。
-2. **轨道 B：现有文件局部重构走结构化 Search/Replace 块（Block Replacement）**：
-   ```text
-   <<<<<<< SEARCH
-   String action = request.getParameter("action");
-   =======
-   String action = request.getAction();
-   >>>>>>> REPLACE
-   ```
-   后端 Node 24 模糊匹配算法执行替换，规避行号计算错误。
-
----
-
-## 6. DeepSeek-v4-pro 推理策略与参数矩阵
-
-| Agent 角色 | 核心任务 | Temperature | Top_P | Max Tokens | Reasoning 模式 | 目标诉求 |
-| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| 🧠 **Architect Agent** | 全局依赖扫描、业务流建模、`grill-me` 追问 | `0.2` | `0.95` | `8,192` | 开启深度推导 (Thinking Mode) | 保证架构决策严谨、依赖拓扑无环 |
-| 🛠️ **Transformer Agent** | AST 级代码改写、精确 Patch 生成、语法自纠错 | `0.0` | `1.0` | `16,384` | 极速精准代码生成 | **0 随机性**，杜绝变量与废弃 API 幻觉 |
-| 🧪 **Verifier Agent** | 提取逻辑分支、CI预检、断言回归校验 | `0.1` | `0.9` | `8,192` | 严密校验模式 | 确保测试断言完备、本地 CI 预检绿灯 |
 
 ---
 
@@ -272,6 +312,21 @@ export type ModernizerSSEEvent =
       status: "running" | "passed" | "failed";
       errorLogs?: string;
       timestamp: number;
+    }
+  | {
+      type: "grill_me_question";
+      questionId: string;
+      title: string;
+      context: string;
+      options: Array<{
+        id: string;
+        label: string;
+        recommended?: boolean;
+        description: string;
+        pros: string[];           // ✅ 明确优势列表
+        cons: string[];           // ✅ 明确劣势列表
+        tradeoffs: string;        // ✅ 横向比对总结
+      }>;
     }
   | {
       type: "test_suite_result";
