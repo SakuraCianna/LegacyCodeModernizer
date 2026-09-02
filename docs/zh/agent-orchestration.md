@@ -8,7 +8,7 @@
 
 ## 1. 三 Agent 专家团队分工与职责边界
 
-系统借鉴 `Claude Code` 与 `grok-build` 等先进编程 Agent 的架构设计，在 Node.js 24 后端调度三个具备独立专长与上下文隔离的 Agent，形成紧密协作的 ReAct（Reasoning + Acting）闭环：
+系统借鉴 `Claude Code` 与 `grok-build` 等先进编程 Agent 的架构设计，在 Node.js 24 后端调度三个具备独立专长与上下文隔离的 Agent，全流程由 **DeepSeek-v4-pro** 提供高精度推理支撑，形成紧密协作的 ReAct（Reasoning + Acting）闭环：
 
 ```mermaid
 graph TD
@@ -36,6 +36,12 @@ graph TD
             Q_Harness["测试套件驱动: Vitest / JUnit 5 / PyTest"]
             Q_Scorer["业务保真度评分计算引擎"]
         end
+
+        subgraph LLM_Engine ["DeepSeek-v4-pro 核心推理引擎"]
+            Cache["Prompt Caching 静态前缀锁定层"]
+            Client["OpenAI-Compatible DeepSeek 网关"]
+            Cache --> Client
+        end
     end
 
     User <-->|WebSocket / SSE 与 REST| EventBus
@@ -46,6 +52,10 @@ graph TD
     ArchAgent -->|下发迁移依赖计划与任务队列| TransAgent
     TransAgent -->|交付现代化代码切片| TestAgent
     TestAgent -->|产出保真度评分与测试报告| EventBus
+
+    ArchAgent <--> LLM_Engine
+    TransAgent <--> LLM_Engine
+    TestAgent <--> LLM_Engine
 ```
 
 ---
@@ -94,7 +104,7 @@ stateDiagram-v2
         ReadSlice --> FetchDoc
         FetchDoc: 联网检索官方文档
         FetchDoc --> GenPatch
-        GenPatch: 生成现代化重构代码
+        GenPatch: DeepSeek-v4-pro 生成现代化重构代码
         GenPatch --> ApplyPatch
         ApplyPatch: 写入AST重构补丁
         ApplyPatch --> VerifySyntax
@@ -152,7 +162,44 @@ stateDiagram-v2
 
 ---
 
-## 4. SSE（Server-Sent Events）实时流式通信协议
+## 4. DeepSeek-v4-pro 推理策略与缓存优化设计
+
+系统选用 **DeepSeek-v4-pro** 作为全栈 Agent 的大模型底座，针对三 Agent 角色进行差异化的推理参数配置与上下文缓存加速优化。
+
+### 4.1 三 Agent 差异化推理参数矩阵 (Parameter Matrix)
+
+| Agent 角色 | 核心任务 | Temperature | Top_P | Max Tokens | Reasoning 模式 | 目标诉求 |
+| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| 🧠 **Architect Agent** | 全局依赖扫描、业务流建模、`grill-me` 追问 | `0.2` | `0.95` | `8,192` | 开启深度推导 (Thinking Mode) | 保证架构决策严谨、依赖拓扑无环 |
+| 🛠️ **Transformer Agent** | AST 级代码改写、精确 Patch 生成、语法自纠错 | `0.0` | `1.0` | `16,384` | 极速精准代码生成 | **0 随机性**，杜绝变量与废弃 API 幻觉 |
+| 🧪 **Verifier Agent** | 提取逻辑分支、合成测试套件、断言回归校验 | `0.1` | `0.9` | `8,192` | 严密校验模式 | 确保测试断言完备、边界覆盖严苛 |
+
+### 4.2 DeepSeek 原生 Prompt Caching 前缀锁定架构
+
+```mermaid
+graph LR
+    subgraph SystemPromptHeader ["前缀锁定区 (100% Cache 命中)"]
+        K["4大生态官方迁移规则库"]
+        T["AST 工具定义 Tools Schema"]
+        G["全仓符号依赖拓扑图"]
+        K --- T --- G
+    end
+
+    subgraph DynamicInput ["动态输入区 (逐文件切片)"]
+        F["当前文件源码切片"]
+        D["已解析的依赖类型定义"]
+        F --- D
+    end
+
+    SystemPromptHeader --> PromptPayload["完整 Prompt 请求"]
+    DynamicInput --> PromptPayload
+    PromptPayload --> DeepSeek["DeepSeek-v4-pro 网关"]
+    DeepSeek --> FastOutput["极速流式响应 (Token成本降90%, TTFT < 500ms)"]
+```
+
+---
+
+## 5. SSE（Server-Sent Events）实时流式通信协议
 
 后端通过持久连接 `GET /api/workspace/:sessionId/events` 向上层 VS Code Web 工作台实时推送事件。
 

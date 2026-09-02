@@ -11,6 +11,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Node.js-24%20LTS-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js 24 LTS" />
+  <img src="https://img.shields.io/badge/大模型基座-DeepSeek--v4--pro-4f46e5?style=flat-square" alt="DeepSeek-v4-pro" />
   <img src="https://img.shields.io/badge/架构-Tri--Agent%20ReAct-6366f1?style=flat-square" alt="Tri-Agent ReAct" />
   <img src="https://img.shields.io/badge/前端界面-VS%20Code%20IDE%20Style-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white" alt="VS Code Web UI" />
   <img src="https://img.shields.io/badge/AST引擎-Tree--Sitter%20%7C%20Babel-f59e0b?style=flat-square" alt="AST Engine" />
@@ -21,7 +22,7 @@
 
 ## 🌟 Agent 开场白与核心定位
 
-> **“专注企业级遗留系统智能现代化改造，深度聚焦 JSP ➔ Java/Spring Boot 生态升级、Python 生态升级、Vue/React 生态升级与 Node 生态升级四大技术赛道。通过自驱动的三 Agent 专家团队、AST 级精准代码转换、官方文档实时联网检索与回归测试沙箱验证，实现业务逻辑零破坏的自动化全仓重构。”**
+> **“专注企业级遗留系统智能现代化改造，深度聚焦 JSP ➔ Java/Spring Boot 生态升级、Python 生态升级、Vue/React 生态升级与 Node 生态升级四大技术赛道。基于 DeepSeek-v4-pro 大模型底座，驱动三 Agent 专家团队、AST 级精准代码转换、官方文档实时联网检索与回归测试沙箱验证，实现业务逻辑零破坏的自动化全仓重构。”**
 
 ---
 
@@ -32,7 +33,7 @@
 2. **隐式业务逻辑脆弱**：历史边缘场景（Edge Cases）缺少文档与完备测试，人工重写极易漏掉隐式依赖而引发线上事故；
 3. **传统 AI 辅助的局限性**：简单的单次 Prompt 或 Copilot 补全无法理解全仓依赖拓扑，极易幻觉出已弃用的 API，且无法处理大仓跨文件上下文。
 
-**Legacy Code Modernizer** 借鉴 `Claude Code` 与 `grok-build` 的自驱动编程 Agent 架构，将**确定性 AST 工具链**、**自主 ReAct 协同 Agent** 与**轻量测试验证沙箱**深度整合，提供开箱即用的专业 VS Code 风格 Web 工作台。
+**Legacy Code Modernizer** 选用 **DeepSeek-v4-pro** 作为全栈推理底座，结合 **Prompt Caching 前缀锁定**、**确定性 AST 工具链** 与 **轻量测试验证沙箱**，提供开箱即用的专业 VS Code 风格 Web 工作台。
 
 ---
 
@@ -105,6 +106,16 @@ graph TD
         Orch --> Ag2
         Orch --> Ag3
 
+        subgraph LLM_Layer ["LLM 推理与上下文缓存层"]
+            DS["DeepSeek-v4-pro 推理引擎"]
+            Cache["Prompt Caching 静态前缀锁定"]
+            Cache --> DS
+        end
+
+        Ag1 <--> LLM_Layer
+        Ag2 <--> LLM_Layer
+        Ag3 <--> LLM_Layer
+
         subgraph Skills ["内置专属技能库 (Skills)"]
             Sk1["💬 grill-me 决策技能<br/>(重大架构分支追问交互)"]
             Sk2["🗺️ 业务全景建模技能<br/>(端到端业务流与依赖分析)"]
@@ -164,7 +175,7 @@ sequenceDiagram
         opt 遇到生僻或已弃用 API
             Trans->>Tools: 联网检索官方 Migration Guide
         end
-        Trans->>Tools: 写入 AST 级现代重构补丁
+        Trans->>Tools: 写入 AST 级现代重构补丁 (DeepSeek-v4-pro)
         Trans->>Tools: 调用静态编译器验证语法与类型
         alt 发现语法或类型错误
             Trans->>Trans: 触发自我反思与修正循环 (Self-Reflection)
@@ -253,10 +264,6 @@ stateDiagram-v2
     DeliverablePipeline --> [*]
 ```
 
-- **⚡ 全自动模式（Full-Auto）**：适用于极速演示与标准场景。Architect Agent 自动匹配行业最佳实践，全流程零阻断秒级跑完。
-- **🧭 专家交互模式（HITL）**：在遇到重大架构分歧时激活内置 **`grill-me`** 技能，向用户提供带推荐项的结构化决策卡片，确认后再继续向下重构。
-- **🔍 Monaco 行级审查与驳回**：在差异对比视图中，用户可精确针对某一段重构进行 `Accept`（采纳）或 `Reject`（驳回并指派 Agent 重写）。
-
 ---
 
 ## 🚀 本地开发快速上手
@@ -264,6 +271,7 @@ stateDiagram-v2
 ### 环境要求
 - **Node.js**：`24.x LTS`
 - **包管理器**：`pnpm`（推荐）或 `npm`
+- **大模型 API Key**：`DEEPSEEK_API_KEY` (DeepSeek-v4-pro)
 
 ### 1. 克隆代码仓库
 ```bash
@@ -294,7 +302,7 @@ pnpm dev
 详细的底层设计细节、通信协议与基准测试集请查阅 `/docs` 目录：
 
 - 📐 [**系统架构与运行时规范**](./docs/zh/architecture.md) ([English](./docs/architecture.md))：Node.js 24 运行时架构、AST 解析器工具链与沙箱隔离时序。
-- 🤖 [**Agent 协同机制与协议规范**](./docs/zh/agent-orchestration.md) ([English](./docs/agent-orchestration.md))：ReAct 状态机、SSE 流式事件协议与 `grill-me` 技能交互。
+- 🤖 [**Agent 协同机制与协议规范**](./docs/zh/agent-orchestration.md) ([English](./docs/agent-orchestration.md))：DeepSeek-v4-pro 推理矩阵、ReAct 状态机、SSE 流式事件协议与 `grill-me` 技能交互。
 - 🗺️ [**现代化赛道与转换矩阵**](./docs/zh/migration-matrix.md) ([English](./docs/migration-matrix.md))：四大赛道 AST 转换规则、弃用 API 映射与业务保真守卫。
 - 🧪 [**基准测试集与量化指标规范**](./docs/zh/benchmark-test-suites.md) ([English](./docs/benchmark-test-suites.md))：四大赛道端到端基准源码、测试断言与数学保真度评分计算公式。
 

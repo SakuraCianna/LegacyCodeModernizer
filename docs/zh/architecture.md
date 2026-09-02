@@ -8,7 +8,7 @@
 
 ## 1. 系统全景与分层架构
 
-**Legacy Code Modernizer** 是一个基于 **Node.js 24 LTS** 的高吞吐、事件驱动全栈系统。展示层与 Agent 执行核心通过 RESTful API 与 Server-Sent Events (SSE) 保持双向解耦与实时流式互通。
+**Legacy Code Modernizer** 是一个基于 **Node.js 24 LTS** 与 **DeepSeek-v4-pro** 的高吞吐、事件驱动全栈系统。展示层与 Agent 执行核心通过 RESTful API 与 Server-Sent Events (SSE) 保持双向解耦与实时流式互通。
 
 ```mermaid
 graph TD
@@ -53,6 +53,16 @@ graph TD
             Orch --> Trans
             Orch --> Test
         end
+
+        subgraph LLM_Layer ["LLM 推理与上下文缓存层"]
+            DS["DeepSeek-v4-pro 推理引擎"]
+            Cache["Prompt Caching 静态前缀锁定"]
+            Cache --> DS
+        end
+
+        Arch <--> LLM_Layer
+        Trans <--> LLM_Layer
+        Test <--> LLM_Layer
 
         subgraph ASTToolchain ["确定性 AST 与静态分析工具链"]
             TS["Tree-Sitter 多语言统一解析引擎"]

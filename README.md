@@ -11,6 +11,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Node.js-24%20LTS-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js 24 LTS" />
+  <img src="https://img.shields.io/badge/LLM-DeepSeek--v4--pro-4f46e5?style=flat-square" alt="DeepSeek-v4-pro" />
   <img src="https://img.shields.io/badge/Architecture-Tri--Agent%20ReAct-6366f1?style=flat-square" alt="Tri-Agent ReAct" />
   <img src="https://img.shields.io/badge/Frontend-VS%20Code%20IDE%20Style-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white" alt="VS Code Web UI" />
   <img src="https://img.shields.io/badge/AST%20Engine-Tree--Sitter%20%7C%20Babel-f59e0b?style=flat-square" alt="AST Engine" />
@@ -21,7 +22,7 @@
 
 ## 🌟 Agent Opening Pitch & Core Mission
 
-> **"Dedicated to enterprise-grade intelligent legacy system modernization. Deeply focusing on four core technical tracks: JSP ➔ Java/Spring Boot ecosystem migration, Python ecosystem upgrade, Vue/React modern stack evolution, and Node.js modernization. Powered by an autonomous Tri-Agent engineering team, AST-level precision transformations, live official documentation retrieval, and regression verification to achieve zero-disruption, whole-repository modernization."**
+> **"Dedicated to enterprise-grade intelligent legacy system modernization. Deeply focusing on four core technical tracks: JSP ➔ Java/Spring Boot ecosystem migration, Python ecosystem upgrade, Vue/React modern stack evolution, and Node.js modernization. Powered by an autonomous Tri-Agent engineering team orchestrated by DeepSeek-v4-pro, AST-level precision transformations, live official documentation retrieval, and regression verification to achieve zero-disruption, whole-repository modernization."**
 
 ---
 
@@ -32,7 +33,7 @@ Enterprise legacy codebases (e.g., monolithic JSP applications, Python 2 scripts
 2. **Implicit Business Logic Fragility**: Undocumented edge cases and implicit dependencies often break during manual rewrites.
 3. **Naive LLM Limitations**: Simple single-pass prompting lacks global dependency awareness, frequently hallucinates deprecated APIs, and fails to handle whole-repository context.
 
-**Legacy Code Modernizer** solves these challenges by combining **Deterministic AST Tools**, **Autonomous ReAct Agents (inspired by Claude Code and grok-build)**, and **Regression Testing Sandboxes** within an intuitive VS Code-inspired Web IDE.
+**Legacy Code Modernizer** solves these challenges by combining **Deterministic AST Tools**, **Autonomous ReAct Agents powered by DeepSeek-v4-pro (inspired by Claude Code and grok-build)**, and **Regression Testing Sandboxes** within an intuitive VS Code-inspired Web IDE.
 
 ---
 
@@ -105,6 +106,16 @@ graph TD
         Orch --> Ag2
         Orch --> Ag3
 
+        subgraph LLM_Layer ["LLM Inference & Cache Layer"]
+            DS["DeepSeek-v4-pro Engine"]
+            Cache["Prompt Caching (Prefix Lock)"]
+            Cache --> DS
+        end
+
+        Ag1 <--> LLM_Layer
+        Ag2 <--> LLM_Layer
+        Ag3 <--> LLM_Layer
+
         subgraph Skills ["Built-in Skill Suite"]
             Sk1["💬 grill-me Decision Skill<br/>(Architectural Decision Interviews)"]
             Sk2["🗺️ Codebase Domain Modeler<br/>(End-to-End Business Flow Analysis)"]
@@ -164,7 +175,7 @@ sequenceDiagram
         opt Niche or Breaking APIs
             Trans->>Tools: Live web search for official migration docs
         end
-        Trans->>Tools: Apply AST-guided modern code patch
+        Trans->>Tools: Apply AST-guided modern code patch (via DeepSeek-v4-pro)
         Trans->>Tools: Run static syntax & type check
         alt Syntax / Type Error
             Trans->>Trans: Self-Reflection & Correction Loop
@@ -179,8 +190,8 @@ sequenceDiagram
     Test->>User: Export Modernized ZIP / Submit GitHub PR
 ```
 
-1. **🧠 Modernize Architect Agent**: Performs static analysis, resolves cross-file import dependencies, orders files topologically (bottom-up), and maps end-to-end business flows. Houses the built-in **`grill-me` skill** to interview users on critical architectural branches.
-2. **🛠️ Code Transformer Agent**: Executes surgical code modifications file-by-file. Armed with **`Live Web Search`** to query official documentation on breaking changes, backed by an **AST Self-Reflection Loop** to fix compiler/syntax errors immediately.
+1. **🧠 Modernize Architect Agent**: Performs static analysis, resolves cross-file import dependencies, orders files topologically (bottom-up), and maps end-to-end business flows. Houses the built-in **`grill-me` skill** to interview users on critical architectural branches. (DeepSeek-v4-pro Reasoning Mode).
+2. **🛠️ Code Transformer Agent**: Executes surgical code modifications file-by-file. Armed with **`Live Web Search`** to query official documentation on breaking changes, backed by an **AST Self-Reflection Loop** to fix compiler/syntax errors immediately. (DeepSeek-v4-pro Temperature 0.0).
 3. **🧪 Test & Quality Verifier Agent**: Generates comprehensive modern test suites (Vitest, JUnit 5, PyTest) reflecting historical assertions, executing tests in sandboxes to measure and certify the **Business Logic Preservation Score**.
 
 ---
@@ -211,7 +222,9 @@ Crafted according to anti-slop, developer-first engineering aesthetics:
 ```mermaid
 stateDiagram-v2
     [*] --> Ingestion
+    Ingestion: Repository Ingestion
     Ingestion --> DependencyAnalysis
+    DependencyAnalysis: Dependency Analysis
 
     state "Execution Mode Selection" as ModeSelection
     DependencyAnalysis --> ModeSelection
@@ -256,10 +269,6 @@ stateDiagram-v2
     DeliverablePipeline --> [*]
 ```
 
-- **⚡ Full-Auto Mode**: Default pipeline for rapid, hands-off modernization. The Architect Agent applies standard industry practices without interruption.
-- **🧭 Interactive (HITL) Mode**: Activates the built-in **`grill-me`** skill when facing major architectural divergence (e.g. monolithic templates vs headless REST), presenting structured decision cards before continuing.
-- **🔍 Monaco Line-by-Line Rejection**: Granular control in the diff viewer allowing developers to accept specific sections or instruct the Agent to re-synthesize code.
-
 ---
 
 ## 🚀 Quick Start (Development)
@@ -267,6 +276,7 @@ stateDiagram-v2
 ### Prerequisites
 - **Node.js**: `24.x LTS`
 - **Package Manager**: `pnpm` (recommended) or `npm`
+- **LLM API Key**: `DEEPSEEK_API_KEY` (DeepSeek-v4-pro)
 
 ### 1. Clone Repository
 ```bash
@@ -297,7 +307,7 @@ pnpm dev
 For in-depth architectural specifications and implementation protocols, please explore the `/docs` directory:
 
 - 📐 [**System Architecture & Runtime Specification**](./docs/architecture.md) ([中文版](./docs/zh/architecture.md)): Full breakdown of Node 24 runtime, AST toolchains, and sandbox isolation.
-- 🤖 [**Agent Orchestration & Protocol Specification**](./docs/agent-orchestration.md) ([中文版](./docs/zh/agent-orchestration.md)): ReAct loops, SSE streaming protocols, tool definitions, and skill integrations.
+- 🤖 [**Agent Orchestration & Protocol Specification**](./docs/agent-orchestration.md) ([中文版](./docs/zh/agent-orchestration.md)): DeepSeek-v4-pro inference matrix, ReAct loops, SSE protocols, and `grill-me` skill.
 - 🗺️ [**Modernization Tracks & Migration Matrix**](./docs/migration-matrix.md) ([中文版](./docs/zh/migration-matrix.md)): In-depth conversion rules for JSP, Python, Vue/React, and Node ecosystems.
 - 🧪 [**Benchmark Test Suites & Quantifiable Metrics**](./docs/benchmark-test-suites.md) ([中文版](./docs/zh/benchmark-test-suites.md)): Ground-truth test datasets, code contracts, and deterministic preservation scoring formulas.
 

@@ -8,7 +8,7 @@
 
 ## 1. Tri-Agent Team & Division of Responsibilities
 
-Inspired by modern autonomous coding agents (`Claude Code`, `grok-build`), the modernization engine coordinates three specialized agents operating in an asynchronous ReAct (Reasoning + Acting) loop.
+Inspired by modern autonomous coding agents (`Claude Code`, `grok-build`), the modernization engine coordinates three specialized agents operating in an asynchronous ReAct (Reasoning + Acting) loop powered by **DeepSeek-v4-pro**.
 
 ```mermaid
 graph TD
@@ -36,6 +36,12 @@ graph TD
             Q_Harness["Test Harness: Vitest / JUnit / PyTest"]
             Q_Scorer["Business Logic Preservation Metric Engine"]
         end
+
+        subgraph LLM_Engine ["DeepSeek-v4-pro Inference Engine"]
+            Cache["Prompt Caching Layer (Prefix Lock)"]
+            Client["OpenAI-Compatible DeepSeek Gateway"]
+            Cache --> Client
+        end
     end
 
     User <-->|WebSocket / SSE & REST| EventBus
@@ -46,6 +52,10 @@ graph TD
     ArchAgent -->|Emits Migration Plan & Task Queue| TransAgent
     TransAgent -->|Emits Modernized Code Slices| TestAgent
     TestAgent -->|Emits Verification & Fidelity Report| EventBus
+
+    ArchAgent <--> LLM_Engine
+    TransAgent <--> LLM_Engine
+    TestAgent <--> LLM_Engine
 ```
 
 ---
@@ -94,7 +104,7 @@ stateDiagram-v2
         ReadSlice --> FetchDoc
         FetchDoc: Live Web Search Official Docs
         FetchDoc --> GenPatch
-        GenPatch: Generate Modernized Code
+        GenPatch: Generate Modernized Code via DeepSeek-v4-pro
         GenPatch --> ApplyPatch
         ApplyPatch: Apply AST Code Patch
         ApplyPatch --> VerifySyntax
@@ -152,7 +162,44 @@ When processing legacy systems, significant architectural forks exist where no s
 
 ---
 
-## 4. SSE (Server-Sent Events) Stream Protocol
+## 4. DeepSeek-v4-pro Inference Strategy & Optimization
+
+The system adopts **DeepSeek-v4-pro** as its core foundation model, configuring differentiated inference parameters and prompt caching strategies per agent role.
+
+### 4.1 Tri-Agent Inference Parameter Matrix
+
+| Agent Role | Primary Objective | Temperature | Top_P | Max Tokens | Reasoning Mode | Rationale |
+| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| 🧠 **Architect Agent** | Global dependency planning, domain modeling, `grill-me` | `0.2` | `0.95` | `8,192` | Enabled (Thinking Mode) | High reasoning depth, strictly ordered task queues |
+| 🛠️ **Transformer Agent** | AST code rewrite, surgical patch creation, self-healing | `0.0` | `1.0` | `16,384` | Precision Coding Mode | **Zero randomness**, eliminates deprecated API hallucinations |
+| 🧪 **Verifier Agent** | Test case synthesis, edge case coverage, assertion checking | `0.1` | `0.9` | `8,192` | Strict Validation Mode | Comprehensive assertion coverage and logic preservation |
+
+### 4.2 DeepSeek Native Prompt Caching (Prefix Lock)
+
+```mermaid
+graph LR
+    subgraph SystemPromptHeader ["Prefix Lock (100% Cache Hit)"]
+        K["4 Modernization Rulebooks"]
+        T["AST Tool Schemas"]
+        G["Global Dependency AST Graph"]
+        K --- T --- G
+    end
+
+    subgraph DynamicInput ["Dynamic Slices (Per File)"]
+        F["Current File Source Slice"]
+        D["Resolved Dependency DTO Types"]
+        F --- D
+    end
+
+    SystemPromptHeader --> PromptPayload["Prompt Payload"]
+    DynamicInput --> PromptPayload
+    PromptPayload --> DeepSeek["DeepSeek-v4-pro Gateway"]
+    DeepSeek --> FastOutput["Low Latency Output (90% Cost Reduction, TTFT < 500ms)"]
+```
+
+---
+
+## 5. SSE (Server-Sent Events) Stream Protocol
 
 The backend streams live events to the frontend VS Code workbench over a persistent `text/event-stream` connection at `GET /api/workspace/:sessionId/events`.
 

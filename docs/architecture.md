@@ -8,7 +8,7 @@
 
 ## 1. System Overview & Layered Architecture
 
-**Legacy Code Modernizer** is built on a high-throughput, event-driven fullstack architecture centered around **Node.js 24 LTS**. The presentation layer is decoupled from the agentic execution core via bidirectional RESTful APIs and Server-Sent Events (SSE).
+**Legacy Code Modernizer** is built on a high-throughput, event-driven fullstack architecture centered around **Node.js 24 LTS** and powered by **DeepSeek-v4-pro**. The presentation layer is decoupled from the agentic execution core via bidirectional RESTful APIs and Server-Sent Events (SSE).
 
 ```mermaid
 graph TD
@@ -53,6 +53,16 @@ graph TD
             Orch --> Trans
             Orch --> Test
         end
+
+        subgraph LLM_Layer ["LLM Inference & Cache Layer"]
+            DS["DeepSeek-v4-pro Engine"]
+            Cache["Prompt Caching (Prefix Lock)"]
+            Cache --> DS
+        end
+
+        Arch <--> LLM_Layer
+        Trans <--> LLM_Layer
+        Test <--> LLM_Layer
 
         subgraph ASTToolchain ["Deterministic AST & Static Analysis"]
             TS["Tree-Sitter Multi-Language Engine"]
