@@ -94,18 +94,20 @@ sequenceDiagram
 ### 2.1 Embedded SQLite Database Schema (`local.db`)
 
 ```sql
--- Users Table
+-- Users & Preferences Table
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     github_id INTEGER UNIQUE NOT NULL,
     username TEXT NOT NULL,
     avatar_url TEXT,
     access_token TEXT NOT NULL,
+    deepseek_api_key TEXT, -- User-provided DeepSeek API key (encrypted at rest)
+    deepseek_base_url TEXT DEFAULT 'https://api.deepseek.com/v1',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Workspaces Table
+-- Workspaces Metadata Table
 CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -120,7 +122,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Snapshots & Audit Log Table
+-- File Mutation Snapshots & Audit Trail
 CREATE TABLE IF NOT EXISTS file_snapshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id TEXT NOT NULL,
@@ -133,12 +135,13 @@ CREATE TABLE IF NOT EXISTS file_snapshots (
 );
 ```
 
-### 2.2 Client-Side Bring Your Own Key (BYOK) Architecture
+### 2.2 Bring Your Own Key (BYOK) & Secure Multi-Tenant Persistence
 
-To maximize privacy and support multi-tenant billing transparency, the workbench utilizes a **BYOK (Bring Your Own Key) model**:
-- **Client-Side Persistence**: Developers enter their `DEEPSEEK_API_KEY` (and optional custom Base URL) directly in the VS Code Workbench settings modal. The key is securely stored in browser `localStorage` and never persisted to the server database or filesystem.
-- **Per-Session Dynamic SDK Instantiation**: When triggering modernization runs, the key is passed via the `x-deepseek-api-key` header or session parameters. The backend dynamically instantiates an in-memory `OpenAI` client dedicated to that specific session.
-- **Server Fallback**: The server `.env` `DEEPSEEK_API_KEY` serves solely as an optional global fallback for unattended 1-Click evaluation demos.
+To prevent context loss on page refresh or cross-device login while supporting long-running background tasks, the workbench implements a **Dual-Tier Persistence Model**:
+- **Client-Side Settings**: Developers configure their `DEEPSEEK_API_KEY` (and optional custom Base URL) in the Workbench settings modal, submitted via `POST /api/user/settings`.
+- **Encrypted SQLite Persistence**: The key is stored in the user's record in `users.deepseek_api_key` (encrypted at rest using `JWT_SECRET`). Even if the developer refreshes the browser, switches machines, or temporarily disconnects, their authenticated session retains the key, ensuring background ReAct tasks proceed uninterrupted.
+- **Per-User Client Isolation**: Backend workers dynamically retrieve the authenticated user's key to instantiate isolated `OpenAI` client instances per session, preventing billing or quota interference.
+- **Global Fallback**: The server `.env` `DEEPSEEK_API_KEY` serves solely as an optional fallback for 1-Click demo evaluation.
 
 ---
 

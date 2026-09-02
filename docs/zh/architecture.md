@@ -94,13 +94,15 @@ sequenceDiagram
 ### 2.1 嵌入式 SQLite 数据库表结构 (`local.db`)
 
 ```sql
--- 用户表
+-- 用户表与偏好设置
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     github_id INTEGER UNIQUE NOT NULL,
     username TEXT NOT NULL,
     avatar_url TEXT,
     access_token TEXT NOT NULL,
+    deepseek_api_key TEXT, -- 用户绑定的专属 DeepSeek API 密钥 (加密存储)
+    deepseek_base_url TEXT DEFAULT 'https://api.deepseek.com/v1',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -133,12 +135,13 @@ CREATE TABLE IF NOT EXISTS file_snapshots (
 );
 ```
 
-### 2.2 用户端自主输入 API Key 机制 (BYOK: Bring Your Own Key)
+### 2.2 用户端自主输入与安全持久化机制 (BYOK & Persistent Storage)
 
-为保障多用户环境下的密钥安全与账单透明，系统采用 **BYOK 架构模式**：
-- **前端本地持久化**：用户直接在 VS Code 工作台顶栏设置弹窗中输入自己的 `DEEPSEEK_API_KEY`（与可选自定义 Base URL），数据安全保存在浏览器本地 `localStorage`，避免服务端集中存储带来的泄露风险。
-- **动态会话级客户端实例化**：在创建重构工作区或发送 Agent 请求时，前端通过请求头 `x-deepseek-api-key` 动态传递密钥；后端服务在内存中按会话（Session）动态创建 `OpenAI` SDK 实例，调用完毕即销毁。
-- **服务端兜底配置**：后端 `.env` 中的 `DEEPSEEK_API_KEY` 仅作为可选的全局演示兜底配置（例如为离线评委体验 1-Click Demo 准备）。
+为保障多用户环境下的密钥安全、防止浏览器刷新/切换设备导致上下文丢失，并支持长耗时后台 Agent 任务连续运行，系统采用 **“前端设置 + SQLite 用户表安全入库”双层持久化机制**：
+- **用户自主输入 (BYOK)**：用户在 VS Code 工作台顶栏设置弹窗中输入自己的 `DEEPSEEK_API_KEY`（与可选自定义 Base URL），通过 `POST /api/user/settings` 保存；
+- **SQLite 用户级加密持久化**：密钥写入当前登录用户的 SQLite `users.deepseek_api_key` 字段（结合服务端 `JWT_SECRET` 加密），与用户的 GitHub 账号终身绑定。即使用户刷新浏览器、更换电脑或清除浏览器缓存，登录后依然无缝读取，保证长耗时重构任务不中断；
+- **会话级客户端实例化**：后端在执行 Agent 任务时，按用户 ID 动态取出对应的专属密钥实例化 `OpenAI` 客户端，实现多租户之间严格的算力与账单隔离；
+- **服务端全局兜底配置**：后端 `.env` 中的 `DEEPSEEK_API_KEY` 仅作为可选的全局演示兜底配置（例如为未绑卡评委体验 1-Click Demo 准备）。
 
 ---
 
