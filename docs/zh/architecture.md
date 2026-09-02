@@ -27,7 +27,7 @@ graph TD
     end
 
     subgraph NetworkLayer ["传输与实时推送层"]
-        REST["RESTful API: 代码库导入、配置、PR 触发"]
+        REST["RESTful API: GitHub OAuth 认证、代码库导入、PR 触发"]
         SSE["Server-Sent Events: 实时推送 Agent 思考与 Diff 流"]
         UI <-->|JSON / Multipart| REST
         UI <--|text/event-stream| SSE
@@ -35,12 +35,16 @@ graph TD
 
     subgraph BackendRuntime ["Node.js 24 LTS 后端核心运行时"]
         Gateway["Fastify 高性能 HTTP & SSE 网关"]
+        AuthService["GitHub OAuth 统一认证服务"]
+        DB["嵌入式 SQLite 数据库 (better-sqlite3 / WAL 模式)"]
         REST --> Gateway
+        Gateway --> AuthService
+        Gateway --> DB
         Gateway --> SSE
 
-        subgraph WorkspaceManager ["工作区与数据安全隔离"]
-            WM["会话级临时工作区控制器"]
-            FS_Source["/workspaces/:id/source (只读原工程)"]
+        subgraph WorkspaceManager ["多租户工作区与数据安全隔离"]
+            WM["用户级会话工作区控制器"]
+            FS_Source["/workspaces/:username/:id/source (只读原工程)"]
             FS_Target["/workspaces/:id/target (现代化产物)"]
             Snapshots["/workspaces/:id/snapshots (历史版本快照)"]
             LockMgr["文件并发锁与版本控制器"]
@@ -79,7 +83,7 @@ graph TD
 
         subgraph TieredSandbox ["分层测试与验证沙箱"]
             WorkerPool["Node 24 Worker Threads (进程内 Vitest 驱动)"]
-            SubprocessRunner["受限子进程 (Java/PyTest 10秒超时熔断)"]
+            SubprocessRunner["受限子进程 (Java/PyTest 2GB上限 & 10秒超时)"]
             MicroVMAdapter["可插拔云端 MicroVM 接口 (E2B / Firecracker)"]
             TieredSandbox --> WorkerPool
             TieredSandbox --> SubprocessRunner
@@ -95,6 +99,7 @@ graph TD
     subgraph CloudVCS ["外部生态与代码托管平台"]
         GitHub["GitHub REST / GraphQL API - PR 提交"]
         WebDoc["官方文档检索 CDN / 搜索引擎 API"]
+        AuthService <--> GitHub
         Gateway <--> GitHub
         Orch <--> WebDoc
     end
@@ -102,45 +107,100 @@ graph TD
 
 ---
 
-## 2. 仓库导入与工作区会话隔离时序
+## 2. GitHub OAuth 统一认证与 SQLite 存储架构
 
-为确保代码绝对安全与重构前后的对照完整性，每次导入均生成独立的会话工作区目录：
+系统彻底摒弃传统的账号/密码注册机制，全站采用 **GitHub OAuth 一键单点登录 (SSO)**。用户无需手动生成或配置 GitHub Personal Access Token (PAT)，OAuth 鉴权成功后系统即可直接以用户身份安全拉取私有代码库并自动创建 PR：
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Developer as "开发者"
     participant UI as "VS Code Web 工作台"
-    participant API as "Fastify 网关"
-    participant WM as "工作区管理器"
-    participant FS as "临时文件系统"
+    participant API as "Fastify 认证网关"
+    participant GitHub as "GitHub OAuth 授权服务器"
+    participant DB as "SQLite 数据库 (local.db)"
 
-    alt 1-Click 经典靶场 Demo
-        Developer->>UI: 选择内置靶场 (如 JSP 博客 / Vue 2 购物车)
-        UI->>API: POST /api/workspace/preset { presetId }
-        API->>WM: 实例化靶场模板工程
-    else 本地 ZIP 上传
-        Developer->>UI: 拖拽上传 legacy-project.zip
-        UI->>API: POST /api/workspace/upload (Multipart 流)
-        API->>WM: 解压并过滤黑名单目录 (.git, node_modules, target 等)
-    else GitHub 链接导入
-        Developer->>UI: 提交仓库 URL 与 PAT Token
-        UI->>API: POST /api/workspace/clone { repoUrl, token }
-        API->>WM: 执行浅克隆 (git clone --depth 1)
-    end
+    Developer->>UI: 点击 "Login with GitHub"
+    UI->>API: GET /api/auth/github/login
+    API-->>UI: 302 重定向至 GitHub 授权页
+    UI->>GitHub: 用户确认授权范围 (read:user, repo)
+    GitHub-->>API: 携带授权码回调 ?code=xyz
+    API->>GitHub: POST /login/oauth/access_token { code, client_id, client_secret }
+    GitHub-->>API: 返回 { access_token, scope }
+    API->>GitHub: GET /user (获取用户信息与 GitHub ID)
+    GitHub-->>API: 返回 { id, login, avatar_url, email }
+    API->>DB: 写入或更新用户 Profile 与加密 Token
+    API-->>UI: 写入安全 HttpOnly Session JWT + 进入工作台
+```
 
-    WM->>FS: 初始化 /workspaces/{sessionId}/source/ (原工程只读目录)
-    WM->>FS: 初始化 /workspaces/{sessionId}/target/ (重构产物可写目录)
-    WM->>FS: 初始化 /workspaces/{sessionId}/snapshots/ (历史版本快照目录)
-    WM-->>API: 返回工作区初始化状态 { sessionId, fileTree }
-    API-->>UI: 200 OK + 渲染双工程对照文件树
+### 2.1 嵌入式 SQLite 数据库表结构 (`local.db`)
+
+```sql
+-- 用户表
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    github_id INTEGER UNIQUE NOT NULL,
+    username TEXT NOT NULL,
+    avatar_url TEXT,
+    access_token TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 工作区元数据表
+CREATE TABLE IF NOT EXISTS workspaces (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    track TEXT NOT NULL, -- 'jsp_spring', 'python', 'vue_react', 'node'
+    source_type TEXT NOT NULL, -- 'preset_demo', 'zip_upload', 'github_repo'
+    repo_url TEXT,
+    status TEXT DEFAULT 'initialized', -- 'scanning', 'transforming', 'verifying', 'completed'
+    fidelity_score REAL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 文件快照与审计日志表
+CREATE TABLE IF NOT EXISTS file_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    patch_type TEXT NOT NULL, -- 'whole_file', 'search_replace'
+    snapshot_path TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
 ```
 
 ---
 
-## 3. 代码版本快照与文件并发锁控制引擎
+## 3. 多租户物理目录隔离规范
 
-为支持在前端 Monaco Diff 编辑器中进行**任意历史版本一键回退**，并彻底杜绝多个 Agent 或重试循环对同一文件的并发修改冲突，后端内置了**文件级版本快照与并发锁控制协议（OCC）**：
+磁盘工作区按用户登录名 (`username`) 进行物理隔离，从底层切断跨用户文件越权风险：
+
+```text
+/workspaces
+  ├── /octocat/                               # GitHub 用户: octocat
+  │     └── /sess_9a8b7c6d/                   # 会话 ID
+  │           ├── /source/                    # 只读原工程目录
+  │           ├── /target/                    # 可写现代化产物目录
+  │           └── /snapshots/                 # 版本历史快照 (v1, v2...)
+  │                 └── /src/App.vue/
+  │                       ├── v1.snap
+  │                       └── v2.snap
+  └── /sakuracianna/                          # GitHub 用户: sakuracianna
+        └── /sess_1e2f3a4b/
+              ├── /source/
+              ├── /target/
+              └── /snapshots/
+```
+
+---
+
+## 4. 代码版本快照与文件并发锁控制引擎
 
 ```mermaid
 flowchart TD
@@ -162,9 +222,7 @@ flowchart TD
 
 ---
 
-## 4. 分层执行与实时渲染沙箱架构 (借鉴 Claude Artifacts)
-
-借鉴 Anthropic Claude Artifacts 与 MicroVM 沙箱设计，系统将代码执行划分为浏览器端零延迟渲染与服务端资源受限测试双层沙箱：
+## 5. 分层执行与实时渲染沙箱架构 (借鉴 Claude Artifacts)
 
 ```mermaid
 graph TD
@@ -194,22 +252,9 @@ graph TD
     end
 ```
 
-### 4.1 前端 UI 实时渲染沙箱
-- 重构后的 Vue 3 与 React 19 组件直接在 `<iframe sandbox="allow-scripts allow-forms">`（不开放 `allow-same-origin`）中安全运行；
-- 依赖项（Tailwind、Lucide 图标、Vue 3、React）通过 `esm.sh` CDN 动态按需加载，无需本地安装即可直观验证“UI 视觉与交互零破坏”。
-
-### 4.2 后端测试执行与熔断保护
-- **Vitest 进程内执行器**：JS/TS 测试用例直接在 Node.js 24 `worker_threads` 内存线程中秒级运行，零进程开销；
-- **Java / Python 子进程守卫**：
-  - **10 秒硬超时熔断**：防止死循环阻塞测试流水线；
-  - **2048MB (2GB) 内存上限约束**：支持大型构建与复杂依赖测试，防止堆内存溢出；
-  - **Mock 隔离桩**：全量注入网络与内存数据库桩，无需外部复杂数据库即可独立完成测试回归。
-
 ---
 
-## 5. 多语言 AST 解析与静态分析流水线
-
-后端结合底层 Tree-Sitter 与专用编译器，实现高保真语法树解析与符号映射：
+## 6. 多语言 AST 解析与静态分析流水线
 
 ```mermaid
 flowchart LR
@@ -249,12 +294,12 @@ flowchart LR
 
 ---
 
-## 6. 前端 VS Code 风格工作台组件架构
+## 7. 前端 VS Code 风格工作台组件架构
 
 ```mermaid
 graph TB
     subgraph App ["主应用入口 (App.tsx)"]
-        ActivityBar["Activity Bar 活动栏组件"]
+        ActivityBar["Activity Bar 活动栏组件 (用户头像、工作区切换)"]
         PanelGroup["Resizable Panel Group 响应式面板群"]
         StatusBar["底部全局状态栏"]
 

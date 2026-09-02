@@ -27,7 +27,7 @@ graph TD
     end
 
     subgraph NetworkLayer ["Transport & Streaming Layer"]
-        REST["RESTful API: Repo Ingestion, Config, PR Trigger"]
+        REST["RESTful API: GitHub OAuth, Workspace Ingestion, PR Trigger"]
         SSE["Server-Sent Events: Realtime Thought & Diff Streams"]
         UI <-->|JSON / Multipart| REST
         UI <--|text/event-stream| SSE
@@ -35,12 +35,16 @@ graph TD
 
     subgraph BackendRuntime ["Node.js 24 LTS Core Runtime Engine"]
         Gateway["Fastify HTTP & SSE Gateway"]
+        AuthService["GitHub OAuth Authentication Service"]
+        DB["Embedded SQLite Database (better-sqlite3 / WAL Mode)"]
         REST --> Gateway
+        Gateway --> AuthService
+        Gateway --> DB
         Gateway --> SSE
 
         subgraph WorkspaceManager ["Workspace & Storage Isolation"]
             WM["Session-Isolated Workspace Controller"]
-            FS_Source["/workspaces/:id/source (Readonly)"]
+            FS_Source["/workspaces/:username/:id/source (Readonly)"]
             FS_Target["/workspaces/:id/target (Mutable)"]
             Snapshots["/workspaces/:id/snapshots (Versioned History)"]
             LockMgr["File Lock & Concurrency Controller"]
@@ -79,7 +83,7 @@ graph TD
 
         subgraph TieredSandbox ["Tiered Verification Sandbox"]
             WorkerPool["Node 24 Worker Threads (In-Process Vitest)"]
-            SubprocessRunner["Guarded Subprocess (Java/PyTest with 10s Timeout)"]
+            SubprocessRunner["Guarded Subprocess (Java/PyTest with 2GB Cap & 10s Timeout)"]
             MicroVMAdapter["Pluggable MicroVM Adapter (E2B / Firecracker)"]
             TieredSandbox --> WorkerPool
             TieredSandbox --> SubprocessRunner
@@ -95,6 +99,7 @@ graph TD
     subgraph CloudVCS ["External Ecosystems & VCS"]
         GitHub["GitHub REST / GraphQL API - PR Pipeline"]
         WebDoc["Web Search Engine / Official Documentation CDNs"]
+        AuthService <--> GitHub
         Gateway <--> GitHub
         Orch <--> WebDoc
     end
@@ -102,43 +107,100 @@ graph TD
 
 ---
 
-## 2. Ingestion & Workspace Isolation Pipeline
+## 2. GitHub OAuth Authentication & SQLite Metadata Architecture
 
-To guarantee data safety and performance during code analysis, every repository ingestion generates an ephemeral, isolated workspace session:
+The system eliminates conventional username/password registration in favor of **1-Click GitHub OAuth SSO**, which securely provides user identity and grants automated repository/PR access without requiring manual Personal Access Tokens (PAT).
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Developer as "Developer"
     participant UI as "VS Code Web Workbench"
-    participant API as "Fastify Gateway"
-    participant WM as "Workspace Manager"
-    participant FS as "Ephemeral File System"
+    participant API as "Fastify Auth Gateway"
+    participant GitHub as "GitHub OAuth Server"
+    participant DB as "SQLite Database (local.db)"
 
-    alt 1-Click Preset Demo
-        Developer->>UI: Select Preset (e.g. JSP Blog / Vue 2 Cart)
-        UI->>API: POST /api/workspace/preset { presetId }
-        API->>WM: Instantiate Preset Template
-    else ZIP Upload
-        Developer->>UI: Drag & Drop legacy-project.zip
-        UI->>API: POST /api/workspace/upload (Multipart Stream)
-        API->>WM: Decompress & Filter Blacklisted Dirs (.git, node_modules, target)
-    else GitHub Ingestion
-        Developer->>UI: Submit Repo URL + PAT Token
-        UI->>API: POST /api/workspace/clone { repoUrl, token }
-        API->>WM: Execute Shallow Clone (git clone --depth 1)
-    end
+    Developer->>UI: Click "Login with GitHub"
+    UI->>API: GET /api/auth/github/login
+    API-->>UI: 302 Redirect to GitHub OAuth Consent Screen
+    UI->>GitHub: User Authorizes Scopes (read:user, repo)
+    GitHub-->>API: Redirect Callback with ?code=xyz
+    API->>GitHub: POST /login/oauth/access_token { code, client_id, client_secret }
+    GitHub-->>API: Return { access_token, scope }
+    API->>GitHub: GET /user (Fetch Profile & ID)
+    GitHub-->>API: Return { id, login, avatar_url, email }
+    API->>DB: Upsert User Profile & Encrypted Access Token
+    API-->>UI: Set Secure HttpOnly Session JWT + Redirect to Workbench
+```
 
-    WM->>FS: Allocate /workspaces/{sessionId}/source/ (Read-Only)
-    WM->>FS: Allocate /workspaces/{sessionId}/target/ (Modernized Output)
-    WM->>FS: Allocate /workspaces/{sessionId}/snapshots/ (Version Control)
-    WM-->>API: Workspace Initialized { sessionId, fileTree }
-    API-->>UI: 200 OK + Render Dual File Tree
+### 2.1 Embedded SQLite Database Schema (`local.db`)
+
+```sql
+-- Users Table
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    github_id INTEGER UNIQUE NOT NULL,
+    username TEXT NOT NULL,
+    avatar_url TEXT,
+    access_token TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Workspaces Table
+CREATE TABLE IF NOT EXISTS workspaces (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    track TEXT NOT NULL, -- 'jsp_spring', 'python', 'vue_react', 'node'
+    source_type TEXT NOT NULL, -- 'preset_demo', 'zip_upload', 'github_repo'
+    repo_url TEXT,
+    status TEXT DEFAULT 'initialized', -- 'scanning', 'transforming', 'verifying', 'completed'
+    fidelity_score REAL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Snapshots & Audit Log Table
+CREATE TABLE IF NOT EXISTS file_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    patch_type TEXT NOT NULL, -- 'whole_file', 'search_replace'
+    snapshot_path TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
 ```
 
 ---
 
-## 3. Code Snapshot Versioning & Optimistic Lock Engine
+## 3. Ingestion & User-Isolated Workspace Storage
+
+Every modernization session is strictly isolated by user handle (`username`) to eliminate data contamination between concurrent users:
+
+```text
+/workspaces
+  ├── /octocat/                               # User: octocat
+  │     └── /sess_9a8b7c6d/                   # Session ID
+  │           ├── /source/                    # Read-only original legacy source
+  │           ├── /target/                    # Mutable modernized target source
+  │           └── /snapshots/                 # Versioned file history (v1, v2...)
+  │                 └── /src/App.vue/
+  │                       ├── v1.snap
+  │                       └── v2.snap
+  └── /sakuracianna/                          # User: sakuracianna
+        └── /sess_1e2f3a4b/
+              ├── /source/
+              ├── /target/
+              └── /snapshots/
+```
+
+---
+
+## 4. Code Snapshot Versioning & Optimistic Lock Engine
 
 To support one-click rollback in the Monaco Diff editor and prevent race conditions when multiple agent steps touch the same file, the backend maintains a **File-Level Snapshot & Lock Control Protocol**:
 
@@ -162,9 +224,7 @@ flowchart TD
 
 ---
 
-## 4. Tiered Sandbox & Live Rendering Architecture (Claude-Inspired)
-
-Inspired by Anthropic Claude's Artifacts and Cloud Sandbox architectures, execution is tiered into browser-side zero-latency isolation and backend resource-guarded runners:
+## 5. Tiered Sandbox & Live Rendering Architecture (Claude-Inspired)
 
 ```mermaid
 graph TD
@@ -194,22 +254,9 @@ graph TD
     end
 ```
 
-### 4.1 Client-Side Live Component Preview
-- Modernized Vue 3 and React 19 components render inside a strictly isolated `<iframe sandbox="allow-scripts allow-forms">` without `allow-same-origin`.
-- Dependencies (Tailwind, Lucide icons, Vue, React) are dynamically imported via `https://esm.sh`, providing instant visual verification of zero UI disruption.
-
-### 4.2 Backend Test Execution Guardrails
-- **Vitest In-Process Runner**: JS/TS tests run within Node.js 24 `worker_threads` with zero process-spawn overhead.
-- **Java / Python Subprocess Guard**:
-  - **10s Hard Timeout**: Kills runaway loops instantly.
-  - **Memory Limits**: Caps heap allocations at 2048MB (2GB).
-  - **Mock Fixtures**: Injects mock network and in-memory database adapters to run tests without external database dependencies.
-
 ---
 
-## 5. AST Toolchain & Static Code Analysis
-
-The backend integrates specialized Abstract Syntax Tree (AST) parsers to parse, validate, and manipulate code without losing formatting or introducing syntax hallucinations:
+## 6. AST Toolchain & Static Code Analysis
 
 ```mermaid
 flowchart LR
@@ -249,14 +296,12 @@ flowchart LR
 
 ---
 
-## 6. Frontend Workbench Component Architecture
-
-The frontend is modeled after the VS Code workbench to maximize information density and developer familiarity:
+## 7. Frontend Workbench Component Architecture
 
 ```mermaid
 graph TB
     subgraph App ["Main Application Root (App.tsx)"]
-        ActivityBar["Activity Bar Component"]
+        ActivityBar["Activity Bar Component (User Avatar, Workspaces)"]
         PanelGroup["Resizable Panel Group"]
         StatusBar["Global Status Bar"]
 
