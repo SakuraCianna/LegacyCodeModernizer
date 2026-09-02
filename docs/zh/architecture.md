@@ -133,6 +133,13 @@ CREATE TABLE IF NOT EXISTS file_snapshots (
 );
 ```
 
+### 2.2 用户端自主输入 API Key 机制 (BYOK: Bring Your Own Key)
+
+为保障多用户环境下的密钥安全与账单透明，系统采用 **BYOK 架构模式**：
+- **前端本地持久化**：用户直接在 VS Code 工作台顶栏设置弹窗中输入自己的 `DEEPSEEK_API_KEY`（与可选自定义 Base URL），数据安全保存在浏览器本地 `localStorage`，避免服务端集中存储带来的泄露风险。
+- **动态会话级客户端实例化**：在创建重构工作区或发送 Agent 请求时，前端通过请求头 `x-deepseek-api-key` 动态传递密钥；后端服务在内存中按会话（Session）动态创建 `OpenAI` SDK 实例，调用完毕即销毁。
+- **服务端兜底配置**：后端 `.env` 中的 `DEEPSEEK_API_KEY` 仅作为可选的全局演示兜底配置（例如为离线评委体验 1-Click Demo 准备）。
+
 ---
 
 ## 3. 多租户物理目录隔离规范

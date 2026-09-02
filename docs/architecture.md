@@ -133,6 +133,13 @@ CREATE TABLE IF NOT EXISTS file_snapshots (
 );
 ```
 
+### 2.2 Client-Side Bring Your Own Key (BYOK) Architecture
+
+To maximize privacy and support multi-tenant billing transparency, the workbench utilizes a **BYOK (Bring Your Own Key) model**:
+- **Client-Side Persistence**: Developers enter their `DEEPSEEK_API_KEY` (and optional custom Base URL) directly in the VS Code Workbench settings modal. The key is securely stored in browser `localStorage` and never persisted to the server database or filesystem.
+- **Per-Session Dynamic SDK Instantiation**: When triggering modernization runs, the key is passed via the `x-deepseek-api-key` header or session parameters. The backend dynamically instantiates an in-memory `OpenAI` client dedicated to that specific session.
+- **Server Fallback**: The server `.env` `DEEPSEEK_API_KEY` serves solely as an optional global fallback for unattended 1-Click evaluation demos.
+
 ---
 
 ## 3. Ingestion & User-Isolated Workspace Storage
