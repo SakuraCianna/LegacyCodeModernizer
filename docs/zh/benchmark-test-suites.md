@@ -30,7 +30,7 @@ $$S_{\text{fidelity}} = 0.50 \times P_{\text{tests}} + 0.30 \times C_{\text{ast}
 ### 2.1 业务场景说明
 一个典型的老旧电商 Session 登录与购物车管理模块，包含 JSP 表单标签、脚本片段 Java 逻辑、原生 `HttpSession` 状态操作以及 SQL 拼接查询。
 
-### 2.2 老旧源源码 (`legacy/CartController.jsp`)
+### 2.2 老旧源源码 (`source/backend/src/main/webapp/cart.jsp`)
 ```jsp
 <%@ page import="java.sql.*, java.util.*" %>
 <%
@@ -60,7 +60,7 @@ $$S_{\text{fidelity}} = 0.50 \times P_{\text{tests}} + 0.30 \times C_{\text{ast}
 %>
 ```
 
-### 2.3 现代化目标源码 (`target/CartRestController.java`)
+### 2.3 现代化目标源码 (`target/backend/src/main/java/com/modernizer/shop/controller/CartRestController.java`)
 ```java
 package com.modernizer.shop.controller;
 
@@ -91,7 +91,7 @@ public class CartRestController {
 }
 ```
 
-### 2.4 自动化验证测试套件 (`test/CartRestControllerTest.java`)
+### 2.4 自动化验证测试套件 (`target/backend/src/test/java/com/modernizer/shop/controller/CartRestControllerTest.java`)
 ```java
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -135,7 +135,7 @@ class CartRestControllerTest {
 ### 3.1 业务场景说明
 一个 Python 2.7 数据采集脚本，使用 `urllib2` 抓取数据、`xrange` 进行循环控制，并利用阻塞队列进行任务调度。
 
-### 3.2 老旧源源码 (`legacy/worker.py`)
+### 3.2 老旧源源码 (`source/services/metrics_worker.py`)
 ```python
 # -*- coding: utf-8 -*-
 import urllib2
@@ -159,7 +159,7 @@ def fetch_metrics(endpoints):
     return results
 ```
 
-### 3.3 现代化目标源码 (`target/worker.py`)
+### 3.3 现代化目标源码 (`target/src/services/metrics_worker.py`)
 ```python
 from typing import Dict, List, Optional
 import httpx
@@ -187,12 +187,12 @@ async def fetch_metrics(endpoints: List[str]) -> Dict[str, Optional[float]]:
     return results
 ```
 
-### 3.4 自动化验证测试套件 (`test/test_worker.py`)
+### 3.4 自动化验证测试套件 (`target/tests/test_metrics_worker.py`)
 ```python
 import pytest
 import respx
 import httpx
-from target.worker import fetch_metrics
+from target.src.services.metrics_worker import fetch_metrics
 
 @pytest.mark.asyncio
 async def test_fetch_metrics_success(respx_mock):
@@ -225,7 +225,7 @@ async def test_fetch_metrics_handles_failure(respx_mock):
 ### 4.1 业务场景说明
 一个 Vue 2 购物车组件，包含 Options API、`$emit` 向上通知、Vuex 3 Mutation 提交与 Filter 格式化。
 
-### 4.2 老旧源源码 (`legacy/ShoppingCart.vue`)
+### 4.2 老旧源源码 (`source/frontend/src/views/ShoppingCart.vue`)
 ```vue
 <template>
   <div class="cart-container">
@@ -273,7 +273,7 @@ export default {
 </script>
 ```
 
-### 4.3 现代化目标源码 (`target/ShoppingCart.vue`)
+### 4.3 现代化目标源码 (`target/frontend/src/views/ShoppingCartView.vue`)
 ```vue
 <template>
   <div class="cart-container p-4 bg-zinc-900 rounded-lg text-white">
@@ -330,15 +330,15 @@ function increment(item: CartItem): void {
 </script>
 ```
 
-### 4.4 自动化验证测试套件 (`test/ShoppingCart.spec.ts`)
+### 4.4 自动化验证测试套件 (`target/frontend/src/__tests__/ShoppingCartView.spec.ts`)
 ```typescript
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { describe, it, expect, beforeEach } from 'vitest';
-import ShoppingCart from '../target/ShoppingCart.vue';
+import ShoppingCart from '../views/ShoppingCartView.vue';
 import { useCartStore } from '@/stores/cart';
 
-describe('ShoppingCart.vue Modernized Component', () => {
+describe('ShoppingCartView.vue Modernized Component', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
@@ -378,7 +378,7 @@ describe('ShoppingCart.vue Modernized Component', () => {
 ### 5.1 业务场景说明
 一个订单校验与签名处理服务，使用 CommonJS 规范编写，包含回调金字塔嵌套（`fs.readFile`, `crypto.pbkdf2`）与错误优先处理。
 
-### 5.2 老旧源源码 (`legacy/orderProcessor.js`)
+### 5.2 老旧源源码 (`source/services/orderProcessor.js`)
 ```javascript
 const fs = require('fs');
 const crypto = require('crypto');
@@ -406,7 +406,7 @@ function processOrder(orderPath, secretKey, callback) {
 module.exports = { processOrder };
 ```
 
-### 5.3 现代化目标源码 (`target/orderProcessor.ts`)
+### 5.3 现代化目标源码 (`target/src/services/orderProcessor.ts`)
 ```typescript
 import { readFile } from 'node:fs/promises';
 import { pbkdf2 } from 'node:crypto';
@@ -443,10 +443,10 @@ export async function processOrder(orderPath: string, secretKey: string): Promis
 }
 ```
 
-### 5.4 自动化验证测试套件 (`test/orderProcessor.test.ts`)
+### 5.4 自动化验证测试套件 (`target/tests/orderProcessor.test.ts`)
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
-import { processOrder } from '../target/orderProcessor.js';
+import { processOrder } from '../src/services/orderProcessor.js';
 
 vi.mock('node:fs/promises', () => ({
   readFile: vi.fn().mockImplementation(async (path: string) => {

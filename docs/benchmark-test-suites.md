@@ -28,7 +28,7 @@ Where:
 ### 2.1 Business Scenario
 A legacy e-commerce session-based authentication and cart management module containing JSP form tags, scriptlet Java logic, raw `HttpSession` manipulation, and concatenated JDBC database access.
 
-### 2.2 Legacy Source Code (`legacy/CartController.jsp`)
+### 2.2 Legacy Source Code (`source/backend/src/main/webapp/cart.jsp`)
 ```jsp
 <%@ page import="java.sql.*, java.util.*" %>
 <%
@@ -58,7 +58,7 @@ A legacy e-commerce session-based authentication and cart management module cont
 %>
 ```
 
-### 2.3 Modernized Target Code (`target/CartRestController.java`)
+### 2.3 Modernized Target Code (`target/backend/src/main/java/com/modernizer/shop/controller/CartRestController.java`)
 ```java
 package com.modernizer.shop.controller;
 
@@ -89,7 +89,7 @@ public class CartRestController {
 }
 ```
 
-### 2.4 Synthesized Verification Test Suite (`test/CartRestControllerTest.java`)
+### 2.4 Synthesized Verification Test Suite (`target/backend/src/test/java/com/modernizer/shop/controller/CartRestControllerTest.java`)
 ```java
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -120,7 +120,7 @@ class CartRestControllerTest {
         mockMvc.perform(post("/api/v1/cart/items")
                 .header("Authorization", "Bearer valid_jwt_token")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"itemId\":\"101 OR 1=1\",\"quantity\":2}"))
+                .content("{\"itemId\":\"1 OR 1=1\",\"quantity\":1}"))
                 .andExpect(status().isBadRequest());
     }
 }
@@ -133,7 +133,7 @@ class CartRestControllerTest {
 ### 3.1 Business Scenario
 A Python 2.7 data ETL script fetching metrics using `urllib2`, parsing text with `xrange`, and dispatching jobs over a thread-safe `Queue.Queue`.
 
-### 3.2 Legacy Source Code (`legacy/worker.py`)
+### 3.2 Legacy Source Code (`source/services/metrics_worker.py`)
 ```python
 # -*- coding: utf-8 -*-
 import urllib2
@@ -157,7 +157,7 @@ def fetch_metrics(endpoints):
     return results
 ```
 
-### 3.3 Modernized Target Code (`target/worker.py`)
+### 3.3 Modernized Target Code (`target/src/services/metrics_worker.py`)
 ```python
 from typing import Dict, List, Optional
 import httpx
@@ -185,12 +185,12 @@ async def fetch_metrics(endpoints: List[str]) -> Dict[str, Optional[float]]:
     return results
 ```
 
-### 3.4 Synthesized Verification Test Suite (`test/test_worker.py`)
+### 3.4 Synthesized Verification Test Suite (`target/tests/test_metrics_worker.py`)
 ```python
 import pytest
 import respx
 import httpx
-from target.worker import fetch_metrics
+from target.src.services.metrics_worker import fetch_metrics
 
 @pytest.mark.asyncio
 async def test_fetch_metrics_success(respx_mock):
@@ -223,7 +223,7 @@ async def test_fetch_metrics_handles_failure(respx_mock):
 ### 4.1 Business Scenario
 A Vue 2 shopping cart component using Options API, `$emit`, legacy Vuex mutations, and filters.
 
-### 4.2 Legacy Source Code (`legacy/ShoppingCart.vue`)
+### 4.2 Legacy Source Code (`source/frontend/src/views/ShoppingCart.vue`)
 ```vue
 <template>
   <div class="cart-container">
@@ -271,7 +271,7 @@ export default {
 </script>
 ```
 
-### 4.3 Modernized Target Code (`target/ShoppingCart.vue`)
+### 4.3 Modernized Target Code (`target/frontend/src/views/ShoppingCartView.vue`)
 ```vue
 <template>
   <div class="cart-container p-4 bg-zinc-900 rounded-lg text-white">
@@ -328,15 +328,15 @@ function increment(item: CartItem): void {
 </script>
 ```
 
-### 4.4 Synthesized Verification Test Suite (`test/ShoppingCart.spec.ts`)
+### 4.4 Synthesized Verification Test Suite (`target/frontend/src/__tests__/ShoppingCartView.spec.ts`)
 ```typescript
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { describe, it, expect, beforeEach } from 'vitest';
-import ShoppingCart from '../target/ShoppingCart.vue';
+import ShoppingCart from '../views/ShoppingCartView.vue';
 import { useCartStore } from '@/stores/cart';
 
-describe('ShoppingCart.vue Modernized Component', () => {
+describe('ShoppingCartView.vue Modernized Component', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
@@ -376,7 +376,7 @@ describe('ShoppingCart.vue Modernized Component', () => {
 ### 5.1 Business Scenario
 An order validation and processing service written in CommonJS using callback pyramids (`fs.readFile`, `crypto.pbkdf2`) and legacy Express middlewares.
 
-### 5.2 Legacy Source Code (`legacy/orderProcessor.js`)
+### 5.2 Legacy Source Code (`source/services/orderProcessor.js`)
 ```javascript
 const fs = require('fs');
 const crypto = require('crypto');
@@ -404,7 +404,7 @@ function processOrder(orderPath, secretKey, callback) {
 module.exports = { processOrder };
 ```
 
-### 5.3 Modernized Target Code (`target/orderProcessor.ts`)
+### 5.3 Modernized Target Code (`target/src/services/orderProcessor.ts`)
 ```typescript
 import { readFile } from 'node:fs/promises';
 import { pbkdf2 } from 'node:crypto';
@@ -441,10 +441,10 @@ export async function processOrder(orderPath: string, secretKey: string): Promis
 }
 ```
 
-### 5.4 Synthesized Verification Test Suite (`test/orderProcessor.test.ts`)
+### 5.4 Synthesized Verification Test Suite (`target/tests/orderProcessor.test.ts`)
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
-import { processOrder } from '../target/orderProcessor.js';
+import { processOrder } from '../src/services/orderProcessor.js';
 
 vi.mock('node:fs/promises', () => ({
   readFile: vi.fn().mockImplementation(async (path: string) => {
