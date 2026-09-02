@@ -145,26 +145,40 @@ CREATE TABLE IF NOT EXISTS file_snapshots (
 
 ---
 
-## 3. 多租户物理目录隔离规范
+## 3. 多租户物理双工程隔离与映射对照树规范
 
-磁盘工作区按用户登录名 (`username`) 进行物理隔离，从底层切断跨用户文件越权风险：
+### 3.1 物理磁盘双工程隔离架构
+系统在底层采用 **`/source` (只读老工程基准) + `/target` (独立现代化新工程)** 双目录隔离架构，彻底杜绝直接修改或覆盖原代码：
 
 ```text
-/workspaces
-  ├── /octocat/                               # GitHub 用户: octocat
-  │     └── /sess_9a8b7c6d/                   # 会话 ID
-  │           ├── /source/                    # 只读原工程目录
-  │           ├── /target/                    # 可写现代化产物目录
-  │           └── /snapshots/                 # 版本历史快照 (v1, v2...)
-  │                 └── /src/App.vue/
-  │                       ├── v1.snap
-  │                       └── v2.snap
-  └── /sakuracianna/                          # GitHub 用户: sakuracianna
-        └── /sess_1e2f3a4b/
-              ├── /source/
-              ├── /target/
-              └── /snapshots/
+/workspaces/:username/:sessionId/
+   ├── /source/              # 🔴 原始老工程 (严格只读 Read-Only，黄金真理源)
+   │     ├── login.jsp
+   │     ├── UserAction.java
+   │     └── web.xml
+   ├── /target/              # 🟢 现代化新工程 (可写 Mutable，独立全新工程骨架)
+   │     ├── src/
+   │     │    ├── controller/UserController.java
+   │     │    └── views/LoginView.vue
+   │     ├── src/test/       # 自动合成的单元与集成测试套件
+   │     ├── pom.xml         # 现代化依赖配置文件
+   │     ├── MODERNIZATION_REPORT.md  # 全景审计与重构报告
+   │     └── .github/workflows/ci.yml # 预检通过的 CI 自动化流水线
+   └── /snapshots/           # 🛡️ 文件版本快照 (记录 target 的 v1, v2 快照，用于一键回退)
 ```
+
+### 3.2 左侧 Explorer 映射对照树 (Mapping Tree View)
+工作台左侧 Explorer 不仅仅是扁平的文件树，而是以业务模块为维度的**新老代码映射对照树**：
+
+```text
+▼ 📦 用户认证模块 (User Authentication)
+   ├── 📄 [Old] login.jsp ➔ 📄 [New] LoginView.vue
+   └── 📄 [Old] UserAction.java ➔ 📄 [New] UserController.java
+▼ 📦 订单处理模块 (Order Processing)
+   ├── 📄 [Old] OrderServlet.java ➔ 📄 [New] OrderController.java
+   └── 📄 [Old] OrderDAO.java ➔ 📄 [New] OrderRepository.java
+```
+- **交互联动**：点击任意一行映射条目，中央编辑器自动切换为 Monaco 双栏 Diff 视图（左侧载入 `/source` 原文件，右侧载入 `/target` 目标文件）。
 
 ---
 
@@ -304,3 +318,15 @@ graph TB
     MainAppRoot --> AgentViews
     MainAppRoot --> BottomViews
 ```
+
+---
+
+## 8. 双通道成果交付与导出流水线 (Dual-Channel Delivery Pipeline)
+
+重构与 CI 预检绿灯后，工作台右侧结算面板与顶栏提供双通道交付出口：
+
+| 交付通道 | 触发方式 | 底层实现细节 | 交付产物 |
+| :--- | :--- | :--- | :--- |
+| **通道 1：1-Click GitHub PR** | 点击 `🚀 创建 GitHub Pull Request` | 基于用户 OAuth `access_token`，自动在远程仓库创建 `modernize/<timestamp>` 分支，并推送 `/target` 全部代码与 CI 工作流 | 包含完整 Changelog 的 GitHub PR + 自动触发的 GitHub Actions CI |
+| **通道 2：1-Click 本地 ZIP 下载** | 点击 `📦 下载现代化工程包 (ZIP)` | 后端将 `/target` 目录（含目标源码、测试套件、`MODERNIZATION_REPORT.md` 与 `.github/workflows/ci.yml`）压缩流式推送到浏览器 | 完整、可独立执行构建的 `.zip` 压缩包 |
+

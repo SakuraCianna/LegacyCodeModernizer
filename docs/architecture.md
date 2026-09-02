@@ -145,26 +145,40 @@ To prevent context loss on page refresh or cross-device login while supporting l
 
 ---
 
-## 3. Ingestion & User-Isolated Workspace Storage
+## 3. Physical Dual-Project Isolation & Explorer Mapping Tree
 
-Every modernization session is strictly isolated by user handle (`username`) to eliminate data contamination between concurrent users:
+### 3.1 Physical Dual-Project Isolation Architecture
+The platform enforces a strict **`/source` (Read-Only Legacy Ground Truth) + `/target` (Standalone Modernized Executable Project)** dual-directory architecture on disk, ensuring zero in-place destruction of legacy code:
 
 ```text
-/workspaces
-  ├── /octocat/                               # User: octocat
-  │     └── /sess_9a8b7c6d/                   # Session ID
-  │           ├── /source/                    # Read-only original legacy source
-  │           ├── /target/                    # Mutable modernized target source
-  │           └── /snapshots/                 # Versioned file history (v1, v2...)
-  │                 └── /src/App.vue/
-  │                       ├── v1.snap
-  │                       └── v2.snap
-  └── /sakuracianna/                          # User: sakuracianna
-        └── /sess_1e2f3a4b/
-              ├── /source/
-              ├── /target/
-              └── /snapshots/
+/workspaces/:username/:sessionId/
+   ├── /source/              # 🔴 Original Legacy Source (Strictly Read-Only Ground Truth)
+   │     ├── login.jsp
+   │     ├── UserAction.java
+   │     └── web.xml
+   ├── /target/              # 🟢 Modernized Output Project (Mutable, Standalone Project Scaffold)
+   │     ├── src/
+   │     │    ├── controller/UserController.java
+   │     │    └── views/LoginView.vue
+   │     ├── src/test/       # Synthesized unit & regression test suites
+   │     ├── pom.xml         # Modernized build & dependency manifest
+   │     ├── MODERNIZATION_REPORT.md  # Full audit log & architectural changelog
+   │     └── .github/workflows/ci.yml # Pre-verified CI workflow pipeline
+   └── /snapshots/           # 🛡️ File Snapshots (v1, v2 history for 1-click Monaco rollback)
 ```
+
+### 3.2 Explorer Mapping Tree View
+The Explorer sidebar presents a module-centric **Legacy-to-Modern Mapping Tree**:
+
+```text
+▼ 📦 User Authentication Module
+   ├── 📄 [Old] login.jsp ➔ 📄 [New] LoginView.vue
+   └── 📄 [Old] UserAction.java ➔ 📄 [New] UserController.java
+▼ 📦 Order Processing Module
+   ├── 📄 [Old] OrderServlet.java ➔ 📄 [New] OrderController.java
+   └── 📄 [Old] OrderDAO.java ➔ 📄 [New] OrderRepository.java
+```
+- **Interaction Linkage**: Clicking any mapping row automatically opens the Monaco Side-by-Side Diff View (left pane loads `/source` original file; right pane loads `/target` modernized file).
 
 ---
 
@@ -306,3 +320,15 @@ graph TB
     MainAppRoot --> AgentViews
     MainAppRoot --> BottomViews
 ```
+
+---
+
+## 8. Dual-Channel Output & Deliverables Pipeline
+
+Upon achieving certified fidelity score ($S_{\text{fidelity}} \ge 95\%$) and green CI Dry-Run status, the workbench provides two 1-click delivery channels:
+
+| Delivery Channel | Trigger Action | Technical Execution | Deliverable Assets |
+| :--- | :--- | :--- | :--- |
+| **Channel 1: 1-Click GitHub PR** | Click `🚀 Create GitHub Pull Request` | Uses OAuth `access_token` to push `/target` files to branch `modernize/<timestamp>` and open a PR with the generated audit report | Full PR with Markdown Changelog + Triggered GitHub Actions CI |
+| **Channel 2: 1-Click Source ZIP** | Click `📦 Download Modernized ZIP` | Streams `/target` directory (source + tests + `MODERNIZATION_REPORT.md` + `.github/workflows/ci.yml`) as an archive | Complete, standalone buildable `.zip` project |
+
