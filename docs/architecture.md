@@ -180,7 +180,7 @@ graph TD
         NodeWorkers["Node.js 24 worker_threads (In-Process Vitest)"]
         GuardedProcess["Subprocess Runner with Strict Resource Caps"]
         TimeoutGuard["10-Second Hard Timeout (SIGKILL)"]
-        MemoryCap["512MB RAM Cgroups Limit"]
+        MemoryCap["2048MB (2GB) RAM Limit"]
         MockStubs["In-Memory Mock Fixtures (respx / H2 / MockMvc)"]
         GuardedProcess --> TimeoutGuard
         GuardedProcess --> MemoryCap
@@ -202,7 +202,7 @@ graph TD
 - **Vitest In-Process Runner**: JS/TS tests run within Node.js 24 `worker_threads` with zero process-spawn overhead.
 - **Java / Python Subprocess Guard**:
   - **10s Hard Timeout**: Kills runaway loops instantly.
-  - **Memory Limits**: Caps heap allocations at 512MB.
+  - **Memory Limits**: Caps heap allocations at 2048MB (2GB).
   - **Mock Fixtures**: Injects mock network and in-memory database adapters to run tests without external database dependencies.
 
 ---

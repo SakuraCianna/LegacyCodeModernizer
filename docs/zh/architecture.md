@@ -180,7 +180,7 @@ graph TD
         NodeWorkers["Node.js 24 worker_threads (内存级 Vitest 驱动)"]
         GuardedProcess["受限子进程 (执行 Java / PyTest)"]
         TimeoutGuard["10秒硬超时熔断 (SIGKILL)"]
-        MemoryCap["512MB 内存上限约束"]
+        MemoryCap["2048MB (2GB) 内存上限约束"]
         MockStubs["内存级 Mock 桩 (respx / H2 / MockMvc)"]
         GuardedProcess --> TimeoutGuard
         GuardedProcess --> MemoryCap
@@ -202,7 +202,7 @@ graph TD
 - **Vitest 进程内执行器**：JS/TS 测试用例直接在 Node.js 24 `worker_threads` 内存线程中秒级运行，零进程开销；
 - **Java / Python 子进程守卫**：
   - **10 秒硬超时熔断**：防止死循环阻塞测试流水线；
-  - **512MB 内存限制**：防止堆内存溢出；
+  - **2048MB (2GB) 内存上限约束**：支持大型构建与复杂依赖测试，防止堆内存溢出；
   - **Mock 隔离桩**：全量注入网络与内存数据库桩，无需外部复杂数据库即可独立完成测试回归。
 
 ---
