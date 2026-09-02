@@ -35,6 +35,7 @@ graph TD
             Q_Prompt["System Prompt: Test Synthesis & Verification"]
             Q_Harness["Test Harness: Vitest / JUnit / PyTest"]
             Q_Scorer["Business Logic Preservation Metric Engine"]
+            Q_CIDryRun["Pre-Flight CI Dry-Run & Type Checker"]
         end
 
         subgraph LLM_Engine ["DeepSeek-v4-pro Inference Engine"]
@@ -129,7 +130,23 @@ stateDiagram-v2
         CalcScore: Compute Fidelity Score
     }
 
-    VERIFYING --> READY_FOR_REVIEW: Score Meets Threshold
+    VERIFYING --> CI_DRY_RUN: Fidelity Threshold Met
+
+    state "Pre-Flight CI Dry-Run" as CI_DRY_RUN {
+        [*] --> CheckPathCasing
+        CheckPathCasing: Linux Case-Sensitivity Audit
+        CheckPathCasing --> RunTypecheck
+        RunTypecheck: Strict Type Check (tsc / mypy)
+        RunTypecheck --> RunLinter
+        RunLinter: Linting & Lockfile Audit
+        RunLinter --> FixCIError: CI Linter/Type Failure
+        FixCIError: Trigger Transformer Self-Healing
+        FixCIError --> RunTypecheck
+        RunLinter --> CIPassed: All Checks Green
+        CIPassed: CI Dry-Run Certified
+    }
+
+    CI_DRY_RUN --> READY_FOR_REVIEW
 
     state "Diff Review" as READY_FOR_REVIEW {
         [*] --> StreamDiff
@@ -148,68 +165,68 @@ stateDiagram-v2
 
 ---
 
-## 3. Dual-Track Code Patching & Version Snapshot Protocol
+## 3. Pre-Flight CI Dry-Run & Eliminating AI CI Failures
 
-To eliminate off-by-one line number hallucinations and support instant rollback, the **Code Transformer Agent** uses a **Dual-Track Code Patching Strategy**:
+A frequent failure mode in autonomous coding agents is that generated code runs locally but fails when pushed to GitHub Actions CI/CD. The **Verifier Agent** eliminates this via a deterministic **Pre-Flight CI Dry-Run**:
 
-### 3.1 Dual-Track Patch Specification
-1. **Track A: Whole-File Generation (For Extracted / New Components)**
-   - Used when extracting decoupled controllers, DTO records, Pinia stores, or new TypeScript modules.
-   - Outputs full file content directly into `/target` workspace.
-2. **Track B: Structured Search & Replace Blocks (For Existing File Refactoring)**
-   - Used when modifying legacy utility functions, class methods, or component logic.
-   - Uses strict syntax:
-     ```text
-     <<<<<<< SEARCH
-     String action = request.getParameter("action");
-     =======
-     String action = request.getAction();
-     >>>>>>> REPLACE
-     ```
-   - Processed by a backend Fuzzy Block Matcher in Node 24, avoiding fragile line number indexing.
+### 3.1 Four Root Causes of AI CI Failures & Solutions
+
+| Root Cause of CI Failure | Real-World Manifestation | Modernizer Deterministic Defense |
+| :--- | :--- | :--- |
+| **1. File Path Case-Sensitivity** | Windows is case-insensitive (`import './user'` matches `User.ts`), but Linux CI (`ubuntu-latest`) crashes with `Module not found`. | **AST Path Normalizer**: Audits all relative import paths against exact disk casing before submission. |
+| **2. Unpinned Dependencies** | CI `npm install` picks up fresh breaking minor versions not present during generation. | **Deterministic Lockfile Generator**: Generates pinned `package-lock.json` / `pnpm-lock.yaml` with frozen versions. |
+| **3. Strict Linter / Typecheck Errors** | CI enforces `tsc --noEmit` and `eslint --max-warnings=0`; raw LLMs often emit implicit `any` or unused imports. | **Local Typecheck Dry-Run**: Runs `tsc --noEmit` in sandbox; automatically re-prompts Transformer Agent on errors. |
+| **4. Flaky Async Test Timers** | Tests relying on arbitrary `sleep(500)` fail on constrained CI CPU cores. | **Deterministic Test Harness**: Uses Vitest `vi.waitFor` and MockMvc asynchronous latch barriers. |
 
 ---
 
-## 4. DeepSeek-v4-pro Inference Strategy & Optimization
+## 4. Full-Asset Deliverable Pipeline
 
-The system adopts **DeepSeek-v4-pro** as its core foundation model, configuring differentiated inference parameters and prompt caching strategies per agent role.
+When the user accepts modernizations, the system compiles a complete **Production-Ready Deliverable Package**:
 
-### 4.1 Tri-Agent Inference Parameter Matrix
+```mermaid
+graph LR
+    subgraph Package ["Final Deliverables (.zip / GitHub PR)"]
+        Src["1. Modernized Source Code (/target)"]
+        Tests["2. Synthesized Test Suites (JUnit / Vitest / PyTest)"]
+        Report["3. MODERNIZATION_REPORT.md (Changelog & Audit Log)"]
+        CI["4. .github/workflows/ci.yml (Pre-Verified CI Pipeline)"]
+    end
+```
+
+---
+
+## 5. Dual-Track Code Patching & Version Snapshot Protocol
+
+To eliminate off-by-one line number hallucinations and support instant rollback, the **Code Transformer Agent** uses a **Dual-Track Code Patching Strategy**:
+
+### 5.1 Dual-Track Patch Specification
+1. **Track A: Whole-File Generation (For Extracted / New Components)**: Outputs full file content directly into `/target` workspace.
+2. **Track B: Structured Search & Replace Blocks (For Existing File Refactoring)**:
+   ```text
+   <<<<<<< SEARCH
+   String action = request.getParameter("action");
+   =======
+   String action = request.getAction();
+   >>>>>>> REPLACE
+   ```
+   Processed by a backend Fuzzy Block Matcher in Node 24, avoiding fragile line number indexing.
+
+---
+
+## 6. DeepSeek-v4-pro Inference Strategy & Optimization
+
+### 6.1 Tri-Agent Inference Parameter Matrix
 
 | Agent Role | Primary Objective | Temperature | Top_P | Max Tokens | Reasoning Mode | Rationale |
 | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
 | 🧠 **Architect Agent** | Global dependency planning, domain modeling, `grill-me` | `0.2` | `0.95` | `8,192` | Enabled (Thinking Mode) | High reasoning depth, strictly ordered task queues |
 | 🛠️ **Transformer Agent** | AST code rewrite, surgical patch creation, self-healing | `0.0` | `1.0` | `16,384` | Precision Coding Mode | **Zero randomness**, eliminates deprecated API hallucinations |
-| 🧪 **Verifier Agent** | Test case synthesis, edge case coverage, assertion checking | `0.1` | `0.9` | `8,192` | Strict Validation Mode | Comprehensive assertion coverage and logic preservation |
-
-### 4.2 DeepSeek Native Prompt Caching (Prefix Lock)
-
-```mermaid
-graph LR
-    subgraph SystemPromptHeader ["Prefix Lock (100% Cache Hit)"]
-        K["4 Modernization Rulebooks"]
-        T["AST Tool Schemas"]
-        G["Global Dependency AST Graph"]
-        K --- T --- G
-    end
-
-    subgraph DynamicInput ["Dynamic Slices (Per File)"]
-        F["Current File Source Slice"]
-        D["Resolved Dependency DTO Types"]
-        F --- D
-    end
-
-    SystemPromptHeader --> PromptPayload["Prompt Payload"]
-    DynamicInput --> PromptPayload
-    PromptPayload --> DeepSeek["DeepSeek-v4-pro Gateway"]
-    DeepSeek --> FastOutput["Low Latency Output (90% Cost Reduction, TTFT < 500ms)"]
-```
+| 🧪 **Verifier Agent** | Test case synthesis, CI dry-run, assertion checking | `0.1` | `0.9` | `8,192` | Strict Validation Mode | Comprehensive assertion coverage and logic preservation |
 
 ---
 
-## 5. SSE (Server-Sent Events) Stream Protocol
-
-The backend streams live events to the frontend VS Code workbench over a persistent `text/event-stream` connection at `GET /api/workspace/:sessionId/events`.
+## 7. SSE (Server-Sent Events) Stream Protocol
 
 ### Event Payload Schema
 
@@ -241,8 +258,8 @@ export type ModernizerSSEEvent =
       filePath: string;
       status: "in_progress" | "completed";
       patchType: "whole_file" | "search_replace";
-      fileVersion: number;        // e.g. 1, 2, 3
-      previousVersion: number;    // e.g. 0, 1, 2
+      fileVersion: number;
+      previousVersion: number;
       rollbackSupported: boolean;
       originalContent: string;
       modifiedContent: string;
@@ -257,31 +274,18 @@ export type ModernizerSSEEvent =
       timestamp: number;
     }
   | {
-      type: "doc_search_snippet";
-      query: string;
-      url: string;
-      title: string;
-      summary: string;
+      type: "ci_dry_run_progress";
+      stepName: "case_sensitivity" | "typecheck" | "lint" | "test";
+      status: "running" | "passed" | "failed";
+      errorLogs?: string;
       timestamp: number;
-    }
-  | {
-      type: "grill_me_question";
-      questionId: string;
-      title: string;
-      context: string;
-      options: Array<{
-        id: string;
-        label: string;
-        recommended?: boolean;
-        description: string;
-      }>;
     }
   | {
       type: "test_suite_result";
       totalTests: number;
       passed: number;
       failed: number;
-      preservationScore: number; // e.g. 99.4
+      preservationScore: number;
       testCases: Array<{
         name: string;
         status: "pass" | "fail";

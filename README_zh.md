@@ -302,9 +302,10 @@ pnpm dev
 详细的底层设计细节、通信协议与基准测试集请查阅 `/docs` 目录：
 
 - 📐 [**系统架构与运行时规范**](./docs/zh/architecture.md) ([English](./docs/architecture.md))：Node.js 24 运行时架构、AST 解析器工具链与沙箱隔离时序。
-- 🤖 [**Agent 协同机制与协议规范**](./docs/zh/agent-orchestration.md) ([English](./docs/agent-orchestration.md))：DeepSeek-v4-pro 推理矩阵、ReAct 状态机、SSE 流式事件协议与 `grill-me` 技能交互。
+- 🤖 [**Agent 协同机制与协议规范**](./docs/zh/agent-orchestration.md) ([English](./docs/agent-orchestration.md))：DeepSeek-v4-pro 推理矩阵、ReAct 状态机、本地 CI 预检自愈闭环与 SSE 流式事件协议。
 - 🗺️ [**现代化赛道与转换矩阵**](./docs/zh/migration-matrix.md) ([English](./docs/migration-matrix.md))：四大赛道 AST 转换规则、弃用 API 映射与业务保真守卫。
 - 🧪 [**基准测试集与量化指标规范**](./docs/zh/benchmark-test-suites.md) ([English](./docs/benchmark-test-suites.md))：四大赛道端到端基准源码、测试断言与数学保真度评分计算公式。
+- 🌐 [**公网部署与内网穿透规范**](./docs/zh/deployment-and-tunneling.md) ([English](./docs/deployment-and-tunneling.md))：Cloudflare Tunnel 与 Ngrok 极速穿透、防休眠保活策略与云端全天候托管方案。
 
 ---
 

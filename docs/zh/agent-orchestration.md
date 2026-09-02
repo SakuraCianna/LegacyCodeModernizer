@@ -35,6 +35,7 @@ graph TD
             Q_Prompt["系统 Prompt: 现代测试用例合成与断言提取"]
             Q_Harness["测试套件驱动: Vitest / JUnit 5 / PyTest"]
             Q_Scorer["业务保真度评分计算引擎"]
+            Q_CIDryRun["本地 CI 预检与类型守卫引擎"]
         end
 
         subgraph LLM_Engine ["DeepSeek-v4-pro 核心推理引擎"]
@@ -129,7 +130,23 @@ stateDiagram-v2
         CalcScore: 计算业务保真度综合评分
     }
 
-    VERIFYING --> READY_FOR_REVIEW: 评分达到准入阈值
+    VERIFYING --> CI_DRY_RUN: 保真度达标
+
+    state "本地 CI 预检沙箱 (CI Dry-Run)" as CI_DRY_RUN {
+        [*] --> CheckPathCasing
+        CheckPathCasing: Linux 大小写敏感路径核查
+        CheckPathCasing --> RunTypecheck
+        RunTypecheck: 严格类型检查 (tsc --noEmit / mypy)
+        RunTypecheck --> RunLinter
+        RunLinter: 代码风格与 Lockfile 锁定检查
+        RunLinter --> FixCIError: 检查失败
+        FixCIError: 触发 Transformer 针对性自愈
+        FixCIError --> RunTypecheck
+        RunLinter --> CIPassed: 全部绿灯通过
+        CIPassed: 获得 CI 交付认证
+    }
+
+    CI_DRY_RUN --> READY_FOR_REVIEW
 
     state "差异审查 (Review)" as READY_FOR_REVIEW {
         [*] --> StreamDiff
@@ -148,68 +165,64 @@ stateDiagram-v2
 
 ---
 
-## 3. 双轨代码补丁写入与版本快照协议 (Dual-Track Patching)
+## 3. 本地 CI 预检机制（解决 AI 代码无法通过 CI 工作流的行业通病）
 
-为彻底杜绝大模型在输出 Git Unified Diff 时常见的“行号偏移幻觉（Off-by-one Error）”，并支持毫秒级历史快照回退，**Code Transformer Agent** 严格采用**双轨代码补丁策略**：
+在实际使用大模型辅助编程时，代码在本地看似能跑但提交到 GitHub Actions CI 却经常报错失败。**Verifier Agent** 内置了**本地 CI 预检沙箱（Pre-Flight CI Dry-Run）**，在代码交付前逐一攻克四大失败根因：
 
-### 3.1 双轨补丁机制设计
-1. **轨道 A：新建/解耦文件走全量生成（Whole-File Generation）**
-   - 适用于抽离的 Spring Boot REST Controller、Pinia Store 状态树、TypeScript DTO Record 等全新目标文件；
-   - 直接将完整现代化源码输出至 `/target` 目录。
-2. **轨道 B：现有文件局部重构走结构化 Search/Replace 块（Block Replacement）**
-   - 适用于在已有老旧工具类、组件上进行针对性方法升级；
-   - 采用标准结构化标记块：
-     ```text
-     <<<<<<< SEARCH
-     String action = request.getParameter("action");
-     =======
-     String action = request.getAction();
-     >>>>>>> REPLACE
-     ```
-   - 后端 Node 24 内置模糊匹配算法（忽略多余空白/缩进），直接在目标代码上完成精确替换，规避行号计算错误。
+### 3.1 AI 代码导致 CI 失败的四大根因与确定性防御方案
+
+| CI 失败根因 | 典型现象 | Modernizer 确定性防御机制 |
+| :--- | :--- | :--- |
+| **1. 文件路径大小写敏感（Case-Sensitivity）** | Windows 开发环境对大小写不敏感（`import './user'` 能找到 `User.ts`），但 GitHub Actions 的 Linux 环境（`ubuntu-latest`）报错 `Module not found`。 | **AST 路径正规化器**：在提交前扫描所有 import/require 语句，与磁盘真实文件名进行严格二进制大小写比对。 |
+| **2. 依赖版本漂移（Lockfile Drift）** | CI 在执行 `npm install` 或 `pip install` 时拉取了最新子版本，导致 API 发生 Breaking Change。 | **确定性 Lockfile 生成器**：由沙箱自动固化生成已校验的 `package-lock.json` 或 `poetry.lock`，锁定精确版本。 |
+| **3. 严格类型与 Linter 检查报错** | CI 启用了 `tsc --noEmit` 和 `eslint --max-warnings=0`，纯大模型生成的代码经常漏掉细微泛型或留下未使用的 import。 | **沙箱本地 Typecheck 预跑**：本地直接预执行 `tsc --noEmit`，报错时直接将编译器诊断信息反馈给 Transformer Agent 自愈。 |
+| **4. 异步测试执行时序不稳定（Flaky Tests）** | 测试用例依赖写死的 `sleep(500)`，在 CI 共享 CPU 核心下降速导致超时失败。 | **标准断言等待结构**：强制测试套件使用 `vi.waitFor` 或 MockMvc 异步锁机制，杜绝偶发性超时。 |
 
 ---
 
-## 4. DeepSeek-v4-pro 推理策略与缓存优化设计
+## 4. 全要素交付成果流水线 (Full-Asset Deliverables)
 
-系统选用 **DeepSeek-v4-pro** 作为全栈 Agent 的大模型底座，针对三 Agent 角色进行差异化的推理参数配置与上下文缓存加速优化。
+当重构成果通过审查后，系统打包输出一套符合顶级开源标准的交付物：
 
-### 4.1 三 Agent 差异化推理参数矩阵 (Parameter Matrix)
+```mermaid
+graph LR
+    subgraph Package ["交付成果包 (.zip / GitHub PR)"]
+        Src["1. 目标现代化源码 (/target)"]
+        Tests["2. 自动合成的测试套件 (JUnit / Vitest / PyTest)"]
+        Report["3. MODERNIZATION_REPORT.md (重构与审计全景报告)"]
+        CI["4. .github/workflows/ci.yml (已预检通过的 CI 流水线)"]
+    end
+```
+
+---
+
+## 5. 双轨代码补丁写入与版本快照协议 (Dual-Track Patching)
+
+### 5.1 双轨补丁机制设计
+1. **轨道 A：新建/解耦文件走全量生成（Whole-File Generation）**：直接输出至 `/target` 目录。
+2. **轨道 B：现有文件局部重构走结构化 Search/Replace 块（Block Replacement）**：
+   ```text
+   <<<<<<< SEARCH
+   String action = request.getParameter("action");
+   =======
+   String action = request.getAction();
+   >>>>>>> REPLACE
+   ```
+   后端 Node 24 模糊匹配算法执行替换，规避行号计算错误。
+
+---
+
+## 6. DeepSeek-v4-pro 推理策略与参数矩阵
 
 | Agent 角色 | 核心任务 | Temperature | Top_P | Max Tokens | Reasoning 模式 | 目标诉求 |
 | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
 | 🧠 **Architect Agent** | 全局依赖扫描、业务流建模、`grill-me` 追问 | `0.2` | `0.95` | `8,192` | 开启深度推导 (Thinking Mode) | 保证架构决策严谨、依赖拓扑无环 |
 | 🛠️ **Transformer Agent** | AST 级代码改写、精确 Patch 生成、语法自纠错 | `0.0` | `1.0` | `16,384` | 极速精准代码生成 | **0 随机性**，杜绝变量与废弃 API 幻觉 |
-| 🧪 **Verifier Agent** | 提取逻辑分支、合成测试套件、断言回归校验 | `0.1` | `0.9` | `8,192` | 严密校验模式 | 确保测试断言完备、边界覆盖严苛 |
-
-### 4.2 DeepSeek 原生 Prompt Caching 前缀锁定架构
-
-```mermaid
-graph LR
-    subgraph SystemPromptHeader ["前缀锁定区 (100% Cache 命中)"]
-        K["4大生态官方迁移规则库"]
-        T["AST 工具定义 Tools Schema"]
-        G["全仓符号依赖拓扑图"]
-        K --- T --- G
-    end
-
-    subgraph DynamicInput ["动态输入区 (逐文件切片)"]
-        F["当前文件源码切片"]
-        D["已解析的依赖类型定义"]
-        F --- D
-    end
-
-    SystemPromptHeader --> PromptPayload["完整 Prompt 请求"]
-    DynamicInput --> PromptPayload
-    PromptPayload --> DeepSeek["DeepSeek-v4-pro 网关"]
-    DeepSeek --> FastOutput["极速流式响应 (Token成本降90%, TTFT < 500ms)"]
-```
+| 🧪 **Verifier Agent** | 提取逻辑分支、CI预检、断言回归校验 | `0.1` | `0.9` | `8,192` | 严密校验模式 | 确保测试断言完备、本地 CI 预检绿灯 |
 
 ---
 
-## 5. SSE（Server-Sent Events）实时流式通信协议
-
-后端通过持久连接 `GET /api/workspace/:sessionId/events` 向上层 VS Code Web 工作台实时推送事件。
+## 7. SSE（Server-Sent Events）实时流式通信协议
 
 ### TypeScript 事件类型定义
 
@@ -241,8 +254,8 @@ export type ModernizerSSEEvent =
       filePath: string;
       status: "in_progress" | "completed";
       patchType: "whole_file" | "search_replace";
-      fileVersion: number;        // 例如 1, 2, 3
-      previousVersion: number;    // 例如 0, 1, 2
+      fileVersion: number;
+      previousVersion: number;
       rollbackSupported: boolean;
       originalContent: string;
       modifiedContent: string;
@@ -257,31 +270,18 @@ export type ModernizerSSEEvent =
       timestamp: number;
     }
   | {
-      type: "doc_search_snippet";
-      query: string;
-      url: string;
-      title: string;
-      summary: string;
+      type: "ci_dry_run_progress";
+      stepName: "case_sensitivity" | "typecheck" | "lint" | "test";
+      status: "running" | "passed" | "failed";
+      errorLogs?: string;
       timestamp: number;
-    }
-  | {
-      type: "grill_me_question";
-      questionId: string;
-      title: string;
-      context: string;
-      options: Array<{
-        id: string;
-        label: string;
-        recommended?: boolean;
-        description: string;
-      }>;
     }
   | {
       type: "test_suite_result";
       totalTests: number;
       passed: number;
       failed: number;
-      preservationScore: number; // 例如 99.4
+      preservationScore: number;
       testCases: Array<{
         name: string;
         status: "pass" | "fail";

@@ -310,6 +310,7 @@ For in-depth architectural specifications and implementation protocols, please e
 - 🤖 [**Agent Orchestration & Protocol Specification**](./docs/agent-orchestration.md) ([中文版](./docs/zh/agent-orchestration.md)): DeepSeek-v4-pro inference matrix, ReAct loops, SSE protocols, and `grill-me` skill.
 - 🗺️ [**Modernization Tracks & Migration Matrix**](./docs/migration-matrix.md) ([中文版](./docs/zh/migration-matrix.md)): In-depth conversion rules for JSP, Python, Vue/React, and Node ecosystems.
 - 🧪 [**Benchmark Test Suites & Quantifiable Metrics**](./docs/benchmark-test-suites.md) ([中文版](./docs/zh/benchmark-test-suites.md)): Ground-truth test datasets, code contracts, and deterministic preservation scoring formulas.
+- 🌐 [**Deployment & Tunneling Specification**](./docs/deployment-and-tunneling.md) ([中文版](./docs/zh/deployment-and-tunneling.md)): Cloudflare Tunnel, Ngrok setup, and keep-alive configuration for hackathon presentations.
 
 ---
 
