@@ -247,6 +247,28 @@ stateDiagram-v2
 
 ---
 
+## 🛠️ 前后端技术栈与官方依赖清单 (已验证零冲突)
+
+全系统严格对齐 2025/2026 年最新 LTS 工业级技术栈标准，经过全链路版本兼容性深度审计：
+
+### 后端运行时环境 (Node.js 24 LTS)
+- **底层引擎与网关**：Node.js `24.x LTS` 原生 ESM + `fastify` v5.2（高并发异步网关）
+- **实时通信与流式通道**：`@fastify/cors` + `fastify-sse-v2`（Server-Sent Events 实时事件流）
+- **大模型官方 SDK**：`openai` v4.86+（无缝对接 DeepSeek-v4-pro 原生端点与 Prompt Caching）
+- **确定性 AST 解析工具链**：`tree-sitter` (Java/Python) + `@babel/parser` / `@babel/traverse` (JS/Vue) + `ts-morph` (TypeScript)
+- **持久化元数据存储**：嵌入式 `better-sqlite3`（WAL 模式）或 Node 24 原生内置 `node:sqlite`
+- **Schema 严格校验**：`zod` v3.24+（Tool Calling 参数与 SSE 事件强类型约束）
+
+### 前端 Web 工作台 (Vite 6 + React 19)
+- **核心框架与构建**：`react` v19.0 + `react-dom` v19.0 + `vite` v6.2
+- **核心 Diff 编辑器**：`@monaco-editor/react` v4.7+（官方支持 React 19，VS Code 双栏差异比对）
+- **业务数据流拓扑图**：`@xyflow/react` v12.4+（React Flow 12 拓扑依赖可视化）
+- **IDE 响应式面板布局**：`react-resizable-panels` v2.1+（支持四栏自由拖拽）
+- **实时 Agent 流式终端**：`xterm` v5.3 + `xterm-addon-fit`（全彩 ANSI 实时日志终端）
+- **样式与设计系统**：`tailwindcss` v3.4 + `lucide-react` 图标库
+
+---
+
 ## 🚀 本地开发快速上手
 
 ### 环境要求

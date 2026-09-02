@@ -252,6 +252,28 @@ stateDiagram-v2
 
 ---
 
+## 🛠️ Technology Stack & Verified Dependencies
+
+The architecture is built on modern 2025/2026 LTS standards, strictly audited for zero dependency conflicts:
+
+### Backend Runtime (Node.js 24 LTS)
+- **Engine & Gateway**: Node.js `24.x LTS` + `fastify` v5.2 (High-throughput async server)
+- **Streaming & Protocol**: `@fastify/cors` + `fastify-sse-v2` (Persistent Server-Sent Events)
+- **LLM Foundation SDK**: `openai` v4.86+ (Configured with DeepSeek-v4-pro BaseURL & native Prompt Caching)
+- **Deterministic AST Engines**: `tree-sitter` (Java/Python) + `@babel/parser` / `@babel/traverse` (JS/Vue) + `ts-morph` (TypeScript)
+- **Storage & Metadata**: Embedded `better-sqlite3` (WAL Mode) / `node:sqlite`
+- **Validation**: `zod` v3.24+ (Strict Tool Calling & SSE payload schemas)
+
+### Frontend Workbench (React 19 + Vite 6)
+- **UI Core**: `react` v19.0 + `react-dom` v19.0 + `vite` v6.2
+- **Editor & Diff View**: `@monaco-editor/react` v4.7+ (React 19-compatible Side-by-Side Diff)
+- **Business Topology Graph**: `@xyflow/react` v12.4+ (React Flow dependency visualizer)
+- **Workbench Layout**: `react-resizable-panels` v2.1+ (Anti-slop VS Code IDE panel layout)
+- **Live Terminal**: `xterm` v5.3 + `xterm-addon-fit` (Realtime streaming agent trace)
+- **Styling & Design Tokens**: `tailwindcss` v3.4 + `lucide-react` icons
+
+---
+
 ## 🚀 Quick Start (Development)
 
 ### Prerequisites
