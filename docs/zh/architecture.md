@@ -147,38 +147,64 @@ CREATE TABLE IF NOT EXISTS file_snapshots (
 
 ## 3. 多租户物理双工程隔离与映射对照树规范
 
-### 3.1 物理磁盘双工程隔离架构
-系统在底层采用 **`/source` (只读老工程基准) + `/target` (独立现代化新工程)** 双目录隔离架构，彻底杜绝直接修改或覆盖原代码：
+### 3.1 物理磁盘双工程隔离架构 (前后端分离标准工程范例)
+系统在底层采用 **`/source` (只读老工程基准) + `/target` (独立现代化新工程)** 双目录隔离架构。以典型的**“Vue 2 + Spring Boot 1.5/Java 8 老旧前后端分离系统”升级至“Vue 3/TS + Spring Boot 3/Java 21 现代前后端分离系统”**为例，真实磁盘目录结构如下：
 
 ```text
 /workspaces/:username/:sessionId/
-   ├── /source/              # 🔴 原始老工程 (严格只读 Read-Only，黄金真理源)
-   │     ├── login.jsp
-   │     ├── UserAction.java
-   │     └── web.xml
-   ├── /target/              # 🟢 现代化新工程 (可写 Mutable，独立全新工程骨架)
-   │     ├── src/
-   │     │    ├── controller/UserController.java
-   │     │    └── views/LoginView.vue
-   │     ├── src/test/       # 自动合成的单元与集成测试套件
-   │     ├── pom.xml         # 现代化依赖配置文件
-   │     ├── MODERNIZATION_REPORT.md  # 全景审计与重构报告
-   │     └── .github/workflows/ci.yml # 预检通过的 CI 自动化流水线
-   └── /snapshots/           # 🛡️ 文件版本快照 (记录 target 的 v1, v2 快照，用于一键回退)
+   ├── /source/                                # 🔴 原始老工程 (严格只读 Read-Only，黄金真理源)
+   │     ├── frontend/                         # 老前端工程 (Vue 2 + Webpack + Options API)
+   │     │    ├── src/
+   │     │    │    ├── views/Login.vue
+   │     │    │    └── store/index.js
+   │     │    ├── package.json
+   │     │    └── vue.config.js
+   │     └── backend/                          # 老后端工程 (Spring Boot 1.5 + Java 8 + javax.*)
+   │          ├── src/main/java/com/example/
+   │          │    ├── controller/UserController.java
+   │          │    └── model/User.java
+   │          └── pom.xml
+   │
+   ├── /target/                                # 🟢 现代化新工程 (可写 Mutable，独立全新工程骨架)
+   │     ├── frontend/                         # 现代化前端工程 (Vue 3 + Vite 6 + Pinia + TS)
+   │     │    ├── src/
+   │     │    │    ├── views/LoginView.vue     # 升级为 <script setup lang="ts">
+   │     │    │    └── stores/user.ts          # 升级为 Pinia 状态 Store
+   │     │    ├── package.json
+   │     │    ├── vite.config.ts
+   │     │    └── tsconfig.json
+   │     ├── backend/                          # 现代化后端工程 (Spring Boot 3.4 + Java 21 + Jakarta)
+   │     │    ├── src/main/java/com/example/
+   │     │    │    ├── controller/UserController.java  # 迁移为 Jakarta REST API
+   │     │    │    └── model/UserRecord.java           # 升级为 Java 21 Record DTO
+   │     │    ├── src/test/java/com/example/           # 自动合成的 JUnit 5 单元测试
+   │     │    │    └── controller/UserControllerTest.java
+   │     │    └── pom.xml                              # Spring Boot 3.4 依赖清单
+   │     ├── MODERNIZATION_REPORT.md           # 全景审计与重构报告
+   │     └── .github/workflows/ci.yml          # 预检通过的统一 CI 自动化流水线
+   │
+   └── /snapshots/                             # 🛡️ 文件版本快照 (记录 target 的 v1, v2 快照，用于一键回退)
 ```
 
 ### 3.2 左侧 Explorer 映射对照树 (Mapping Tree View)
-工作台左侧 Explorer 不仅仅是扁平的文件树，而是以业务模块为维度的**新老代码映射对照树**：
+工作台左侧 Explorer 严格按照**“前后端模块分级 ➔ 业务功能 ➔ 新老映射条目”**组织映射对照树：
 
 ```text
-▼ 📦 用户认证模块 (User Authentication)
-   ├── 📄 [Old] login.jsp ➔ 📄 [New] LoginView.vue
-   └── 📄 [Old] UserAction.java ➔ 📄 [New] UserController.java
-▼ 📦 订单处理模块 (Order Processing)
-   ├── 📄 [Old] OrderServlet.java ➔ 📄 [New] OrderController.java
-   └── 📄 [Old] OrderDAO.java ➔ 📄 [New] OrderRepository.java
+▼ 🌐 前端模块 (Frontend: Vue 2 Options ➔ Vue 3 Setup + TS)
+   ▼ 📦 认证与会话 (Auth & Session)
+      ├── 📄 [Old] frontend/src/views/Login.vue  ➔  📄 [New] frontend/src/views/LoginView.vue
+      └── 📄 [Old] frontend/src/store/index.js   ➔  📄 [New] frontend/src/stores/user.ts
+   ▼ ⚙️ 工程构建配置 (Build Config)
+      └── 📄 [Old] frontend/vue.config.js        ➔  📄 [New] frontend/vite.config.ts
+
+▼ ☕ 后端模块 (Backend: Spring Boot 1.5/Java 8 ➔ Spring Boot 3/Java 21)
+   ▼ 📦 控制器与接口 (Controllers & APIs)
+      ├── 📄 [Old] backend/src/.../UserController.java  ➔  📄 [New] backend/src/.../UserController.java
+      └── 📄 [Old] backend/src/.../User.java            ➔  📄 [New] backend/src/.../UserRecord.java
+   ▼ 🧪 自动化测试验证 (Synthesized Tests)
+      └── ✨ [Generated] backend/src/test/.../UserControllerTest.java
 ```
-- **交互联动**：点击任意一行映射条目，中央编辑器自动切换为 Monaco 双栏 Diff 视图（左侧载入 `/source` 原文件，右侧载入 `/target` 目标文件）。
+- **交互联动**：点击任意一行映射条目，中央编辑器自动切换为 Monaco 双栏 Diff 视图（左侧载入 `/source/...` 原文件，右侧载入 `/target/...` 目标文件）。
 
 ---
 

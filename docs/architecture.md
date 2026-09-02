@@ -147,38 +147,64 @@ To prevent context loss on page refresh or cross-device login while supporting l
 
 ## 3. Physical Dual-Project Isolation & Explorer Mapping Tree
 
-### 3.1 Physical Dual-Project Isolation Architecture
-The platform enforces a strict **`/source` (Read-Only Legacy Ground Truth) + `/target` (Standalone Modernized Executable Project)** dual-directory architecture on disk, ensuring zero in-place destruction of legacy code:
+### 3.1 Physical Dual-Project Isolation Architecture (Separated Fullstack Example)
+The platform enforces a strict **`/source` (Read-Only Legacy Ground Truth) + `/target` (Standalone Modernized Executable Project)** dual-directory architecture on disk. Taking a typical **"Vue 2 + Spring Boot 1.5/Java 8 Legacy Monorepo" upgrading to "Vue 3/TS + Spring Boot 3/Java 21 Modern Project"** as a concrete example, the on-disk directory layout is structured as follows:
 
 ```text
 /workspaces/:username/:sessionId/
-   ├── /source/              # 🔴 Original Legacy Source (Strictly Read-Only Ground Truth)
-   │     ├── login.jsp
-   │     ├── UserAction.java
-   │     └── web.xml
-   ├── /target/              # 🟢 Modernized Output Project (Mutable, Standalone Project Scaffold)
-   │     ├── src/
-   │     │    ├── controller/UserController.java
-   │     │    └── views/LoginView.vue
-   │     ├── src/test/       # Synthesized unit & regression test suites
-   │     ├── pom.xml         # Modernized build & dependency manifest
-   │     ├── MODERNIZATION_REPORT.md  # Full audit log & architectural changelog
-   │     └── .github/workflows/ci.yml # Pre-verified CI workflow pipeline
-   └── /snapshots/           # 🛡️ File Snapshots (v1, v2 history for 1-click Monaco rollback)
+   ├── /source/                                # 🔴 Original Legacy Source (Strictly Read-Only Ground Truth)
+   │     ├── frontend/                         # Legacy Frontend (Vue 2 + Webpack + Options API)
+   │     │    ├── src/
+   │     │    │    ├── views/Login.vue
+   │     │    │    └── store/index.js
+   │     │    ├── package.json
+   │     │    └── vue.config.js
+   │     └── backend/                          # Legacy Backend (Spring Boot 1.5 + Java 8 + javax.*)
+   │          ├── src/main/java/com/example/
+   │          │    ├── controller/UserController.java
+   │          │    └── model/User.java
+   │          └── pom.xml
+   │
+   ├── /target/                                # 🟢 Modernized Output Project (Mutable, Standalone Project Scaffold)
+   │     ├── frontend/                         # Modern Frontend (Vue 3 + Vite 6 + Pinia + TS)
+   │     │    ├── src/
+   │     │    │    ├── views/LoginView.vue     # Upgraded to <script setup lang="ts">
+   │     │    │    └── stores/user.ts          # Upgraded to Pinia Store
+   │     │    ├── package.json
+   │     │    ├── vite.config.ts
+   │     │    └── tsconfig.json
+   │     ├── backend/                          # Modern Backend (Spring Boot 3.4 + Java 21 + Jakarta)
+   │     │    ├── src/main/java/com/example/
+   │     │    │    ├── controller/UserController.java  # Modern Jakarta REST API
+   │     │    │    └── model/UserRecord.java           # Upgraded to Java 21 Record DTO
+   │     │    ├── src/test/java/com/example/           # Synthesized JUnit 5 Unit Tests
+   │     │    │    └── controller/UserControllerTest.java
+   │     │    └── pom.xml                              # Spring Boot 3.4 Manifest
+   │     ├── MODERNIZATION_REPORT.md           # Full audit log & architectural changelog
+   │     └── .github/workflows/ci.yml          # Pre-verified Monorepo CI Pipeline
+   │
+   └── /snapshots/                             # 🛡️ File Snapshots (v1, v2 history for 1-click Monaco rollback)
 ```
 
 ### 3.2 Explorer Mapping Tree View
-The Explorer sidebar presents a module-centric **Legacy-to-Modern Mapping Tree**:
+The Explorer sidebar organizes files strictly by **"Frontend/Backend Scope ➔ Business Feature ➔ Legacy-to-Modern Mapping Item"**:
 
 ```text
-▼ 📦 User Authentication Module
-   ├── 📄 [Old] login.jsp ➔ 📄 [New] LoginView.vue
-   └── 📄 [Old] UserAction.java ➔ 📄 [New] UserController.java
-▼ 📦 Order Processing Module
-   ├── 📄 [Old] OrderServlet.java ➔ 📄 [New] OrderController.java
-   └── 📄 [Old] OrderDAO.java ➔ 📄 [New] OrderRepository.java
+▼ 🌐 Frontend Module (Vue 2 Options ➔ Vue 3 Setup + TS)
+   ▼ 📦 Auth & Session
+      ├── 📄 [Old] frontend/src/views/Login.vue  ➔  📄 [New] frontend/src/views/LoginView.vue
+      └── 📄 [Old] frontend/src/store/index.js   ➔  📄 [New] frontend/src/stores/user.ts
+   ▼ ⚙️ Build Configuration
+      └── 📄 [Old] frontend/vue.config.js        ➔  📄 [New] frontend/vite.config.ts
+
+▼ ☕ Backend Module (Spring Boot 1.5/Java 8 ➔ Spring Boot 3/Java 21)
+   ▼ 📦 Controllers & APIs
+      ├── 📄 [Old] backend/src/.../UserController.java  ➔  📄 [New] backend/src/.../UserController.java
+      └── 📄 [Old] backend/src/.../User.java            ➔  📄 [New] backend/src/.../UserRecord.java
+   ▼ 🧪 Synthesized Regression Tests
+      └── ✨ [Generated] backend/src/test/.../UserControllerTest.java
 ```
-- **Interaction Linkage**: Clicking any mapping row automatically opens the Monaco Side-by-Side Diff View (left pane loads `/source` original file; right pane loads `/target` modernized file).
+- **Interaction Linkage**: Clicking any mapping row automatically opens the Monaco Side-by-Side Diff View (left pane loads `/source/...` original file; right pane loads `/target/...` modernized file).
 
 ---
 
