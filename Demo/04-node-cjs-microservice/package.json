@@ -1,0 +1,14 @@
+{
+  "name": "legacy-node-cjs-payment-service",
+  "version": "1.0.0",
+  "description": "Legacy CommonJS Express 4 Payment Gateway with nested callbacks",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "async": "^2.6.4",
+    "body-parser": "^1.19.2",
+    "express": "^4.17.3"
+  }
+}
