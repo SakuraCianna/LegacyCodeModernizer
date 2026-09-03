@@ -2,56 +2,42 @@
   <div class="customer-list-view">
     <div class="kpi-panel">
       <div class="kpi-card">
-        <h3>Active Accounts</h3>
-        <p class="kpi-num">{{ activeCount }}</p>
+        <label>Total Credit Approved</label>
+        <p class="kpi-num">{{ totalCreditLimit | currency }}</p>
       </div>
       <div class="kpi-card">
-        <h3>Total Receivables</h3>
-        <p class="kpi-num">{{ totalReceivables | currency }}</p>
+        <label>Current Active Exposure</label>
+        <p class="kpi-num">{{ totalExposure | currency }}</p>
+      </div>
+      <div class="kpi-card warning-card">
+        <label>High Risk / Frozen Accounts</label>
+        <p class="kpi-num warning-text">{{ warningCount }} Accounts</p>
       </div>
     </div>
 
     <div class="filter-bar">
-      <input type="text" v-model="searchQuery" placeholder="Search by name or email..." class="search-input" />
-      <select v-model="statusFilter" class="status-select">
-        <option value="ALL">All Statuses</option>
-        <option value="ACTIVE">Active</option>
-        <option value="PENDING">Pending</option>
-        <option value="INACTIVE">Inactive</option>
+      <input type="text" v-model="searchQuery" placeholder="Search enterprise clients by name or billing email..." class="search-input" />
+      <select v-model="riskFilter" class="select-box">
+        <option value="ALL">All Risk Ratings</option>
+        <option value="A">Grade A (Prime)</option>
+        <option value="B">Grade B (Standard)</option>
+        <option value="C">Grade C (Warning)</option>
+        <option value="D">Grade D (Frozen)</option>
       </select>
-      <button @click="showAddModal = true" class="btn btn-primary">+ New Customer</button>
+      <button @click="showAddModal = true" class="btn btn-primary">+ Open Credit Facility</button>
     </div>
 
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Company Name</th>
-          <th>Contact Email</th>
-          <th>Balance</th>
-          <th>Joined Date</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="customer in filteredCustomers" :key="customer.id">
-          <td>{{ customer.id }}</td>
-          <td><strong>{{ customer.name }}</strong></td>
-          <td>{{ customer.contact }}</td>
-          <td>{{ customer.balance | currency }}</td>
-          <td>{{ customer.joinedAt | formatDate }}</td>
-          <td>
-            <span :class="['status-badge', customer.status.toLowerCase()]">{{ customer.status }}</span>
-          </td>
-          <td>
-            <button @click="toggleStatus(customer)" class="btn btn-sm">Toggle Status</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <!-- Credit Score Cards Grid -->
+    <div class="cards-grid">
+      <CreditScoreCard
+        v-for="customer in filteredCustomers"
+        :key="customer.id"
+        :customer="customer"
+        @update-limit="onUpdateLimit"
+        @select-customer="onSelectCustomer"
+      />
+    </div>
 
-    <!-- Legacy Child Component Interaction via $emit and Props -->
     <CustomerModal
       v-if="showAddModal"
       @close="showAddModal = false"
@@ -62,76 +48,68 @@
 
 <script>
 import { mapGetters, mapState } from 'vuex';
+import CreditScoreCard from '../components/CreditScoreCard.vue';
 import CustomerModal from '../components/CustomerModal.vue';
+import EventBus from '../utils/eventBus';
 
 export default {
   name: 'CustomerList',
   components: {
+    CreditScoreCard,
     CustomerModal
   },
   data() {
     return {
       searchQuery: '',
-      statusFilter: 'ALL',
+      riskFilter: 'ALL',
       showAddModal: false
     };
   },
   computed: {
-    ...mapState({
-      customers: state => state.customers
+    ...mapState('customer', {
+      customers: state => state.list
     }),
-    ...mapGetters({
-      activeCount: 'activeCustomersCount',
-      totalReceivables: 'totalReceivables'
+    ...mapGetters('customer', {
+      totalExposure: 'totalCreditExposure',
+      totalCreditLimit: 'totalCreditLimit',
+      warningCount: 'warningAccountsCount'
     }),
     filteredCustomers() {
       const q = this.searchQuery.toLowerCase();
       return this.customers.filter(c => {
-        const matchesQuery = c.name.toLowerCase().includes(q) || c.contact.toLowerCase().includes(q);
-        const matchesStatus = this.statusFilter === 'ALL' || c.status === this.statusFilter;
-        return matchesQuery && matchesStatus;
+        const matchesQuery = c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q);
+        const matchesRisk = this.riskFilter === 'ALL' || c.riskRating === this.riskFilter;
+        return matchesQuery && matchesRisk;
       });
     }
   },
   methods: {
-    toggleStatus(customer) {
-      const nextStatus = customer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-      this.$store.dispatch('updateStatus', { id: customer.id, status: nextStatus });
-      
-      // Legacy EventBus Broadcast
-      this.$eventBus.$emit('customer-status-changed', { id: customer.id, status: nextStatus });
+    onUpdateLimit(payload) {
+      this.$store.dispatch('customer/modifyCreditLimit', payload);
+      EventBus.$emit('credit-limit-updated', payload);
+    },
+    onSelectCustomer(customer) {
+      this.$emit('view-ledger', customer);
     },
     onCustomerSaved(newCustomer) {
-      this.$store.commit('ADD_CUSTOMER', newCustomer);
-      this.showAddModal = false;
+      this.$store.dispatch('customer/saveCustomer', newCustomer).then(() => {
+        this.showAddModal = false;
+      });
     }
-  },
-  mounted() {
-    this.$eventBus.$on('customer-status-changed', payload => {
-      console.log('[EventBus] Status updated for customer:', payload.id);
-    });
-  },
-  beforeDestroy() {
-    this.$eventBus.$off('customer-status-changed');
   }
 };
 </script>
 
 <style scoped>
-.kpi-panel { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
-.kpi-card { background: white; padding: 1.5rem; border-radius: 8px; flex: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.kpi-num { font-size: 2rem; font-weight: bold; color: #2563eb; margin-top: 0.5rem; }
+.kpi-panel { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; }
+.kpi-card { background: white; padding: 1.2rem 1.5rem; border-radius: 8px; flex: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.kpi-card label { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; }
+.kpi-num { font-size: 1.8rem; font-weight: bold; color: #0f172a; margin-top: 0.4rem; }
+.warning-card { border-top: 3px solid #ef4444; }
+.warning-text { color: #dc2626; }
 .filter-bar { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-.search-input { flex: 1; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 6px; }
-.status-select { padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; }
-.btn { padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
-.btn-primary { background: #2563eb; color: white; }
-.btn-sm { padding: 0.4rem 0.8rem; background: #e2e8f0; }
-.data-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.data-table th, .data-table td { padding: 1rem; text-align: left; border-bottom: 1px solid #f1f5f9; }
-.data-table th { background: #f8fafc; font-weight: 600; color: #64748b; }
-.status-badge { padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.8rem; font-weight: bold; }
-.status-badge.active { background: #dcfce7; color: #166534; }
-.status-badge.pending { background: #fef9c3; color: #854d0e; }
-.status-badge.inactive { background: #fee2e2; color: #991b1b; }
+.search-input { flex: 1; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 6px; background: white; font-size: 0.95rem; }
+.select-box { padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 6px; background: white; }
+.btn-primary { background: #2563eb; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 500; cursor: pointer; }
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.2rem; }
 </style>

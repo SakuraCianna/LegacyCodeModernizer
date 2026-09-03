@@ -1,27 +1,25 @@
 import Vue from 'vue';
 import App from './App.vue';
 import store from './store';
+import debounce from './directives/debounce';
+import { formatCurrency } from './utils/moneyCalculator';
 
 Vue.config.productionTip = false;
 
-// Legacy Global EventBus Anti-Pattern
-Vue.prototype.$eventBus = new Vue();
+// Register custom directives
+Vue.directive('debounce', debounce);
 
-// Legacy Global Filters
-Vue.filter('currency', function (value) {
-  if (!value) return '$0.00';
-  return '$' + parseFloat(value).toFixed(2);
+// Register legacy global filters
+Vue.filter('currency', function(value, symbol) {
+  return formatCurrency(value, symbol);
 });
 
-Vue.filter('formatDate', function (value) {
+Vue.filter('dateSimple', function(value) {
   if (!value) return '';
-  var date = new Date(value);
-  return date.getFullYear() + '-' + (date.getMonth() + 1) + '-' + date.getDate();
+  return String(value).split(' ')[0];
 });
 
 new Vue({
   store,
-  render: function (h) {
-    return h(App);
-  }
+  render: h => h(App)
 }).$mount('#app');

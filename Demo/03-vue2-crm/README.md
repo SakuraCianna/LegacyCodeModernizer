@@ -1,16 +1,21 @@
-# 🌐 Demo 03: Vue 2 Enterprise CRM Customer Portal
+# 🌐 Demo 03: Vue 2 Enterprise FinTech CRM & Credit Facility Portal
 
-## 1. 赛道说明
-- **迁移类型**：Vue 2.6 Options API + Vuex 3 ➔ Vue 3.5 `<script setup lang="ts">` + Pinia + Vite 6
-- **核心技术债特征**：
-  1. 使用老旧的 Options API（`data()`, `computed`, `methods`, `watch` 配置对象）；
-  2. 使用 Vue 2 已弃用的全局 Filter（`| currency`, `| formatDate`）；
-  3. 使用全局原型挂载的 EventBus（`Vue.prototype.$eventBus`）进行隐式事件广播；
-  4. 使用老旧的 Vuex 3 集中式 Store（字符串 Mutation 常量，缺乏 TypeScript 强类型支持）；
-  5. 采用 Webpack / Vue CLI 慢速构建体系。
+## 1. 业务场景说明
+这是一个面向金融机构的**企业级客户信贷额度评估、敞口监控与财务流水台账系统**。系统涵盖：
+1. **企业信贷敞口与评级监控网格**（Credit Score Cards、动态额度利用率进度条、风险等级动态降级告警、防重复提交指令 `v-debounce`）；
+2. **复式记账财务总账明细**（借记/贷记交易流水、精准浮点数金融计算器 `moneyCalculator.js`、多维动态组合过滤与弹窗记账）；
+3. **Vuex 3 模块化状态树与悲观回滚**（`customer.js` 与 `ledger.js` 子模块联动、金额变动时联动重算敞口与风控评级）；
+4. **合规审计日志与多格式导出**（CSV/JSON 导出确认模态框、跨组件全局 `EventBus` 广播）。
 
-## 2. 现代化目标
-- **Vue 3 `<script setup lang="ts">`**：组合式 API、`defineProps<Props>()` 与 `defineEmits`；
-- **Pinia 状态管理**：`useCustomerStore()`，提供完整的 TypeScript 类型推导；
-- **原生格式化工具函数**：替代已废弃的 Vue Filter；
-- **Vite 6 极速构建**：秒级冷启动与 HMR 热更新。
+## 2. 遗留技术债与坏味道 (Antipatterns)
+- **Options API 碎片化**：`data`, `computed`, `methods`, `watch` 散落在各个配置对象中，组件逻辑复杂时上下跳转难以维护；
+- **废弃的全局 Filter**：依赖 Vue 2 `| currency`、`| dateSimple` 管道过滤器，在 Vue 3 中已被完全废弃；
+- **隐式 EventBus 广播**：使用 `$eventBus.$emit` / `$on` 进行事件传递，缺乏静态追踪，容易引起内存泄漏；
+- **缺少 TypeScript 静态约束**：纯 JavaScript 编写，Vuex State / Getters / Mutations 均为无类型字符串，重构极易发生运行时错误；
+- **Webpack 慢速打包**：采用 Vue CLI 4 (Webpack 4) 构建体系。
+
+## 3. 现代化目标 (Target Stack)
+- **Vue 3.5 `<script setup lang="ts">`**：组合式 API + TypeScript 接口（`Customer`, `LedgerTransaction`）；
+- **Pinia 2 状态管理**：使用 `useCustomerStore()` 与 `useLedgerStore()` 替换老旧的 Vuex 3 模块；
+- **纯函数工具替换 Filter**：将全局过滤器平滑迁移至强类型格式化函数；
+- **Vite 6 极速构建**：秒级冷启动与类型检查。

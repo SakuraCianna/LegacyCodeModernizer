@@ -4,24 +4,53 @@
          xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
          version="3.1">
 
-    <display-name>Legacy JSP E-Commerce System</display-name>
+    <display-name>Legacy Enterprise JSP E-Commerce System</display-name>
 
     <welcome-file-list>
         <welcome-file>cart.jsp</welcome-file>
     </welcome-file-list>
 
-    <!-- Legacy Order Processing Servlet Mapping -->
+    <!-- Global Rate Limiting Filter -->
+    <filter>
+        <filter-name>RateLimitFilter</filter-name>
+        <filter-class>com.legacy.shop.filter.RateLimitFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>RateLimitFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <!-- Authentication and Session Guard Filter -->
+    <filter>
+        <filter-name>AuthFilter</filter-name>
+        <filter-class>com.legacy.shop.filter.AuthFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>AuthFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <!-- Cart Servlet Mapping -->
+    <servlet>
+        <servlet-name>CartServlet</servlet-name>
+        <servlet-class>com.legacy.shop.servlet.CartServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>CartServlet</servlet-name>
+        <url-pattern>/api/cart</url-pattern>
+    </servlet-mapping>
+
+    <!-- Order Servlet Mapping -->
     <servlet>
         <servlet-name>OrderServlet</servlet-name>
         <servlet-class>com.legacy.shop.servlet.OrderServlet</servlet-class>
     </servlet>
-
     <servlet-mapping>
         <servlet-name>OrderServlet</servlet-name>
         <url-pattern>/order</url-pattern>
     </servlet-mapping>
 
-    <!-- Session Configuration (Stateful 30 mins) -->
+    <!-- Stateful Session Configuration -->
     <session-config>
         <session-timeout>30</session-timeout>
     </session-config>

@@ -1,15 +1,21 @@
-# ⚡ Demo 04: Node.js CommonJS & Express 4 Payment Gateway
+# ⚡ Demo 04: Node.js CommonJS & Express 4 Payment Settlement Gateway
 
-## 1. 赛道说明
-- **迁移类型**：Node.js CommonJS + 回调嵌套 ➔ 原生 ESM + Fastify & Node.js 24 LTS + TypeScript
-- **核心技术债特征**：
-  1. 使用 CommonJS 规范（`require()`, `module.exports = ...`）；
-  2. 深度嵌套的错误优先回调模式（Error-First Callbacks：`fs.readFile`, `crypto.pbkdf2`, `fs.writeFile`）；
-  3. 老旧的 `Express 4` 与 `body-parser` 传统中间件模型；
-  4. 缺少 Promise / Async-Await 流程控制与类型定义。
+## 1. 业务场景说明
+这是一个高安全等级的**跨境支付扣款、批量清结算与银行流水对账微服务**。系统包含：
+1. **支付鉴权与验签中间件**（HMAC-SHA256 防篡改签名校验 `signatureValidator.js`、幂等性 Token 拦截 `idempotency.js`、IP 级别滑动窗口限流器 `rateLimiter.js`）；
+2. **扣款与手续费计算引擎**（PBKDF2 密文推导、费率模型计算 `chargeService.js`、多层回调金字塔）；
+3. **批量清算与状态机流转**（`settlementService.js`、批量事务状态更新）；
+4. **银行流水对账差异检测**（`reconciliation.js`、双向差异比对报告）；
+5. **单元测试与集成测试断言**（`tests/payment.test.js`）。
 
-## 2. 现代化目标
-- **Node.js 24 原生 ESM**：`import { readFile } from 'node:fs/promises'`；
-- **TypeScript 强类型**：`interface PaymentRequest`, `interface TransactionRecord`；
-- **现代高并发微服务框架**：迁移至 `Fastify` 或 `NestJS` 原生异步插件模式；
-- **现代化加解密与工具流**：使用 `node:crypto` 的 Promise API 替代老旧回调。
+## 2. 遗留技术债与坏味道 (Antipatterns)
+- **回调地狱 (Callback Hell)**：深层嵌套的错误优先回调（`fs.readFile` ➔ `crypto.pbkdf2` ➔ `fs.writeFile`），难以阅读与异常捕获；
+- **CommonJS 模块规范**：大量使用 `require()` 与 `module.exports`，无法利用 Node 24 ESM 的静态优化与 Top-level Await；
+- **缺乏类型安全**：缺少 TypeScript 契约，入参和返回值易发生类型漂移；
+- **老旧中间件模型**：基于传统的 Express 4 同步中间件模型。
+
+## 3. 现代化目标 (Target Stack)
+- **Node.js 24 LTS 原生 ESM**：`import { readFile, writeFile } from 'node:fs/promises'`；
+- **Promise & Async/Await**：彻底消除回调金字塔，引入结构化 `try/catch`；
+- **Fastify 现代异步架构**：高并发异步 Hook 与 Schema 校验；
+- **TypeScript 强类型**：严格的 `interface PaymentChargeRequest` 与 DTO 定义。

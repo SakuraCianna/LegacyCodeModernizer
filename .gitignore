@@ -5,7 +5,10 @@ node_modules/
 # Build & Dist Outputs
 dist/
 build/
+target/
 *.tsbuildinfo
+__pycache__/
+*.pyc
 
 # Environment & Sensitive Credentials
 .env
