@@ -1,0 +1,133 @@
+[
+  {
+    "id": "01-jsp-ecommerce",
+    "name": "JSP E-Commerce Monolith",
+    "nameZh": "JSP 单体电商购物车与结账交易引擎",
+    "category": "JSP ➔ Spring Boot 3",
+    "track": "jsp-to-springboot",
+    "description": "Legacy JSP 2.0 and Servlet 3.1 shopping cart with JDBC string concatenation, session manipulation, and row-level pessimistic locking.",
+    "descriptionZh": "JSP 2.0 与 Servlet 3.1 经典电商购物车系统，含 JDBC SQL 拼接、原生 HttpSession 状态操作、行级锁防超卖与幂等校验。",
+    "sourceStack": {
+      "language": "Java 8",
+      "framework": "JSP 2.0 / Servlet 3.1 / Native JDBC",
+      "state": "HttpSession"
+    },
+    "targetStack": {
+      "language": "Java 21",
+      "framework": "Spring Boot 3.4 / Spring Data JPA",
+      "state": "Stateless JWT"
+    },
+    "stats": {
+      "filesCount": 19,
+      "loc": 1200,
+      "testStrategy": "synthesis"
+    },
+    "tags": ["Java 21", "Spring Boot 3.4", "REST API", "Pessimistic Lock", "JWT"],
+    "highlightFile": "src/main/webapp/cart.jsp",
+    "zipFile": "Demo/zips/01-jsp-ecommerce.zip"
+  },
+  {
+    "id": "02-python2-etl",
+    "name": "Python 2.7 Financial Ticker & Risk Scoring Batch Engine",
+    "nameZh": "Python 2.7 金融外汇折算与风险度量批处理引擎",
+    "category": "Python 2 ➔ Python 3.12+ Async",
+    "track": "python2-to-python3",
+    "description": "Financial risk scoring and FX conversion batch pipeline using urllib2, Queue.Queue, cPickle, and thread-safe token bucket rate limiting.",
+    "descriptionZh": "高频金融外汇清洗与 95% 置信度 VaR 风险价值批处理引擎，含 urllib2、阻塞队列、cPickle、线程安全令牌桶与断言测试套件。",
+    "sourceStack": {
+      "language": "Python 2.7",
+      "libraries": ["urllib2", "Queue", "cPickle", "ConfigParser"]
+    },
+    "targetStack": {
+      "language": "Python 3.12+",
+      "libraries": ["httpx", "asyncio", "pydantic", "typed JSON"]
+    },
+    "stats": {
+      "filesCount": 13,
+      "loc": 1050,
+      "testStrategy": "preservation"
+    },
+    "tags": ["Python 3.12", "httpx", "asyncio", "Pydantic", "VaR Scoring"],
+    "highlightFile": "etl_pipeline.py",
+    "zipFile": "Demo/zips/02-python2-etl.zip"
+  },
+  {
+    "id": "03-vue2-crm",
+    "name": "Vue 2 Enterprise FinTech CRM & Credit Portal",
+    "nameZh": "Vue 2 企业金融客户信贷敞口与总账台账门户",
+    "category": "Vue 2 ➔ Vue 3.5 & Pinia",
+    "track": "vue2-to-vue3",
+    "description": "Enterprise credit risk monitoring and double-entry ledger portal built with Vue 2.6 Options API, Vuex 3, EventBus, and custom filters.",
+    "descriptionZh": "企业信贷敞口评估与复式记账台账门户，基于 Vue 2.6 Options API、Vuex 3、全局 Filter、EventBus 广播与高精度浮点计算器。",
+    "sourceStack": {
+      "framework": "Vue 2.6 Options API",
+      "state": "Vuex 3",
+      "build": "Webpack 4 / Vue CLI"
+    },
+    "targetStack": {
+      "framework": "Vue 3.5 Script Setup (<script setup lang='ts'>)",
+      "state": "Pinia 2",
+      "build": "Vite 6"
+    },
+    "stats": {
+      "filesCount": 17,
+      "loc": 1150,
+      "testStrategy": "synthesis"
+    },
+    "tags": ["Vue 3.5", "TypeScript", "Pinia 2", "Vite 6", "Credit Risk"],
+    "highlightFile": "src/views/TransactionLedger.vue",
+    "zipFile": "Demo/zips/03-vue2-crm.zip"
+  },
+  {
+    "id": "04-node-cjs-microservice",
+    "name": "Node.js CommonJS Payment Settlement Gateway",
+    "nameZh": "Node.js CommonJS 跨境支付结算与银行流水对账网关",
+    "category": "Node CJS ➔ Node 24 ESM & Fastify",
+    "track": "node-cjs-to-esm",
+    "description": "Cross-border payment charge and settlement microservice built with Express 4, callback pyramids (pbkdf2), HMAC-SHA256, and reconciliation engine.",
+    "descriptionZh": "跨境支付扣款与清结算微服务，含 HMAC 验签、滑动窗口限流、幂等拦截、PBKDF2 回调金字塔与银行流水对账引擎。",
+    "sourceStack": {
+      "runtime": "Node.js CommonJS",
+      "framework": "Express 4",
+      "pattern": "Callback Hell (Error-first)"
+    },
+    "targetStack": {
+      "runtime": "Node.js 24 LTS Native ESM",
+      "framework": "Fastify",
+      "pattern": "Async / Await + TypeScript"
+    },
+    "stats": {
+      "filesCount": 16,
+      "loc": 1100,
+      "testStrategy": "preservation"
+    },
+    "tags": ["Node 24 ESM", "Fastify", "TypeScript", "HMAC", "Reconciliation"],
+    "highlightFile": "services/chargeService.js",
+    "zipFile": "Demo/zips/04-node-cjs-microservice.zip"
+  },
+  {
+    "id": "05-springboot2-vue2-fullstack",
+    "name": "Spring Boot 2.7 & Vue 2.7 Financial Core Payment Gateway",
+    "nameZh": "Spring Boot 2.7 & Vue 2.7 旗舰级核心支付与退款状态机全栈靶场",
+    "category": "Fullstack Modernization (Java 21 + Vue 3.5)",
+    "track": "springboot2-vue2-to-springboot3-vue3",
+    "description": "Mission-critical payment cashier and refund state machine with Jedis distributed locks (SETNX + Lua), Redis sliding-window rate limiter, JPA @Version CAS wallet deductions, partial refund audit trails, and JUnit integration tests.",
+    "descriptionZh": "银行级支付收银台与退款状态机全栈系统，含 Jedis 分布式锁、Redis 滑动窗口限流、账户钱包 @Version 乐观锁 CAS 扣款、多次退款防呆校验与完整集成测试套件。",
+    "sourceStack": {
+      "backend": "Spring Boot 2.7.18 (Java 8 / javax.* / Jedis Pool)",
+      "frontend": "Vue 2.7 Options API / Vuex 3 / Webpack 4"
+    },
+    "targetStack": {
+      "backend": "Spring Boot 3.4 (Java 21 Record DTO / Jakarta / Lettuce)",
+      "frontend": "Vue 3.5 Script Setup / Pinia 2 / Vite 6"
+    },
+    "stats": {
+      "filesCount": 26,
+      "loc": 2200,
+      "testStrategy": "preservation"
+    },
+    "tags": ["Flagship Fullstack", "Spring Boot 3.4", "Java 21 Record", "Vue 3.5 TS", "Pinia", "Distributed Lock"],
+    "highlightFile": "backend/src/main/java/com/enterprise/pay/service/impl/PaymentServiceImpl.java",
+    "zipFile": "Demo/zips/05-springboot2-vue2-fullstack.zip"
+  }
+]

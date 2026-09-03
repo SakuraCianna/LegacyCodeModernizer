@@ -91,7 +91,9 @@ sequenceDiagram
     API-->>UI: Set Secure HttpOnly Session JWT + Redirect to Workbench
 ```
 
-### 2.1 Embedded SQLite Database Schema (`local.db`)
+### 2.1 Embedded SQLite Database Architecture (`better-sqlite3` WAL Mode)
+
+The system adopts **`better-sqlite3`** as its embedded database engine, automatically enabling Write-Ahead Logging (WAL) mode and memory cache to support high-frequency concurrent state persistence and zero-latency session recovery across the Tri-Agent team:
 
 ```sql
 -- Users & Preferences Table
@@ -107,19 +109,20 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Workspaces Metadata Table
+-- Workspaces Metadata Table (Supporting GitHub Users & Guest Anonymous Sessions)
 CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
+    user_id TEXT, -- Nullable to allow unauthenticated Guest Mode
+    is_guest INTEGER DEFAULT 0, -- 1: Anonymous Guest Session; 0: Authenticated User
     name TEXT NOT NULL,
-    track TEXT NOT NULL, -- 'jsp_spring', 'python', 'vue_react', 'node'
+    track TEXT NOT NULL, -- 'jsp_spring', 'python', 'vue_react', 'node', 'springboot2_vue2'
     source_type TEXT NOT NULL, -- 'preset_demo', 'zip_upload', 'github_repo'
     repo_url TEXT,
-    status TEXT DEFAULT 'initialized', -- 'scanning', 'transforming', 'verifying', 'completed'
+    status TEXT DEFAULT 'initialized', -- 'scanning', 'grill_me', 'transforming', 'verifying', 'completed'
     fidelity_score REAL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- File Mutation Snapshots & Audit Trail
@@ -205,6 +208,21 @@ The Explorer sidebar organizes files strictly by **"Frontend/Backend Scope ➔ B
       └── ✨ [Generated] backend/src/test/.../UserControllerTest.java
 ```
 - **Interaction Linkage**: Clicking any mapping row automatically opens the Monaco Side-by-Side Diff View (left pane loads `/source/...` original file; right pane loads `/target/...` modernized file).
+
+### 3.3 Guest Mode Lifecycle & BYOK Execution
+
+To enable frictionless reviews, zero-setup hackathon demonstrations, and instant evaluation, the system fully supports **Guest Mode**:
+1. **Isolated Anonymous Workspace**: Unauthenticated users are instantly assigned a dedicated session ID (`guest-:sessionId`), with isolated file paths under `/workspaces/guest/:sessionId/{source,target}`;
+2. **Pure BYOK Agent Driver**: Users input their `DEEPSEEK_API_KEY` in the top-right settings modal (or leverage server-side fallback). All agent activities directly prompt the real **DeepSeek-v4-pro** model;
+3. **Seamless OAuth Migration**: When a guest later signs in via "Login with GitHub", all active workspaces and code snapshots are atomically re-associated with their GitHub identity, allowing direct PR creation.
+
+### 3.4 Incremental Streaming Modernization Protocol
+
+The platform abandons opaque black-box batch processing in favor of **fine-grained, incremental, per-file modernization**:
+1. **Topology-Driven Task Queue**: The Architect Agent parses AST dependencies and dispatches a bottom-up component queue into the SQLite `tasks` table;
+2. **Immediate Per-File Commit**: The Transformer Agent converts and self-reflects on one file/slice at a time, immediately persisting successful transforms to `/target` and generating snapshots;
+3. **Real-Time Monaco Diff Streaming**: SSE broadcasts `file_modernized` and `diff_ready` events to the client. The left tree nodes flip to green, and users can immediately review side-by-side diffs and line-by-line AI rationales;
+4. **Interactive Decision Suspension**: When architectural divergence is detected, the Architect pushes a `grill_me_card` SSE event to pause execution and await explicit user selection.
 
 ---
 
@@ -347,14 +365,48 @@ graph TB
     MainAppRoot --> BottomViews
 ```
 
+### 7.1 Welcome Onboarding Hub & 1-Click Preset Selector
+
+When users first launch the workbench (or before loading a workspace), the main editor displays the **Welcome Onboarding Hub**:
+1. **Interactive 5-Preset Card Grid**:
+   - Dynamically loaded from `Demo/presets.json` metadata;
+   - Displays track badges (JSP / Python / Vue / Node / Spring Boot), LOC count, legacy smell characteristics, and target stack badges;
+   - Prominently features a **"1-Click Load & Modernize"** action button to mount the demo into the user's isolated workspace in seconds and awaken the Tri-Agent team;
+2. **Persistent Top-Bar Global Quick Actions**:
+   - **`[⚙️ DeepSeek API Key]`**: Immediate BYOK settings modal writing to local browser context and syncing with the active backend session;
+   - **`[🐙 Login with GitHub]`**: OAuth SSO trigger to upgrade anonymous guest sessions to authenticated multi-tenant users.
+
+### 7.2 Monaco Diff In-Depth Review & AI Rationale Tooltip Protocol (HITL)
+
+During incremental code generation, the central editor provides side-by-side verification:
+1. **Side-by-Side Diff Highlighting**: Left pane displays legacy source (red highlights for removed antipatterns); right pane displays modernized code (green highlights for modern idioms);
+2. **AI Rationale Hover Annotations (Decorations)**:
+   - Critical modifications (e.g., `javax.* ➔ jakarta.*`, or Jedis Lua ➔ declarative `@DistributedLock`) display ✨ icons via Monaco Decorations;
+   - Hovering triggers an AI decision tooltip detailing the architectural justification, security enhancement, and official Migration Guide reference;
+3. **Snapshot Version Stepping & One-Click Rollback**:
+   - Top toolbar provides a snapshot picker `[Snapshot: v3 (Current)]` with one-click rollback to `v1` or `v2`;
+   - Explicit **"Accept All"** and **"Reject & Re-prompt"** controls empower developer-in-the-loop oversight.
+
 ---
 
 ## 8. Dual-Channel Output & Deliverables Pipeline
 
-Upon achieving certified fidelity score ($S_{\text{fidelity}} \ge 95\%$) and green CI Dry-Run status, the workbench provides two 1-click delivery channels:
+Upon achieving certified fidelity score ($S_{\text{fidelity}} \ge 95\%$) and green CI Dry-Run status, the workbench provides delivery exits governed by project scope and security rules:
 
-| Delivery Channel | Trigger Action | Technical Execution | Deliverable Assets |
-| :--- | :--- | :--- | :--- |
-| **Channel 1: 1-Click GitHub PR** | Click `🚀 Create GitHub Pull Request` | Uses OAuth `access_token` to push `/target` files to branch `modernize/<timestamp>` and open a PR with the generated audit report | Full PR with Markdown Changelog + Triggered GitHub Actions CI |
-| **Channel 2: 1-Click Source ZIP** | Click `📦 Download Modernized ZIP` | Streams `/target` directory (source + tests + `MODERNIZATION_REPORT.md` + `.github/workflows/ci.yml`) as an archive | Complete, standalone buildable `.zip` project |
+### 8.1 Delivery Channel & Project Scope Permission Matrix
+
+| Project Source Type (`source_type`) | Use Case | 1-Click Local ZIP Download | 1-Click GitHub PR Creation | Access Control & UX Interaction |
+| :--- | :--- | :---: | :---: | :--- |
+| **Built-in Demo Presets (`preset_demo`)** | Official 5 Modernization Benchmarks | **✅ Supported (Exclusive Exit)** | **❌ Disabled (Greyed Out)** | **Demo presets do NOT submit GitHub PRs**. The PR button is disabled with a hover tooltip: "Built-in benchmarks export as standalone modernized ZIP archives to prevent unwanted mutations to external repositories." |
+| **User Imported Repositories (`github_repo`)** | Private/Public GitHub repos imported via OAuth | **✅ Supported** | **✅ Supported** | Full automated branch creation (`modernize/<timestamp>`), code push, and PR creation with markdown changelog. |
+| **Custom ZIP Uploads (`zip_upload`)** | User-uploaded legacy archives | **✅ Supported** | ⚠️ Requires Binding | Defaults to ZIP download; becomes eligible for PR submission once linked to a target GitHub remote. |
+
+### 8.2 Standardized Audit Report Specification (`MODERNIZATION_REPORT.md`)
+
+Every exported ZIP bundle and generated GitHub PR description automatically includes a comprehensive audit report generated by the **Verifier Agent**, structured into four sections:
+1. **Mathematical Preservation Scorecard**: Explicit breakdown of final $S_{\text{fidelity}}$, dynamic test pass rate $P_{\text{tests}}$, AST symbol coverage $C_{\text{ast}}$, and contract conformance $M_{\text{schema}}$;
+2. **Deprecated API & Code Smell Ledger**: Line-by-line inventory of resolved antipatterns (e.g., `javax.* ➔ jakarta.*` substitution table, Jedis Lua ➔ `@DistributedLock`, CommonJS ➔ ESM mapping);
+3. **Sandboxed Regression Test Run Log**: Granular list of executed test cases, assertions verified, sub-second execution timings, and test framework results (JUnit 5 / PyTest / Vitest);
+4. **Target Project Local Run & Deployment Guide**: Clear instructions for local dependency installation, environment variable configuration, and one-command target startup.
+
 

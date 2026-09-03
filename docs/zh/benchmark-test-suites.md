@@ -23,6 +23,20 @@ $$S_{\text{fidelity}} = 0.50 \times P_{\text{tests}} + 0.30 \times C_{\text{ast}
   $$M_{\text{schema}} = \frac{N_{\text{matching\_fields}}}{N_{\text{total\_contract\_fields}}} \times 100\%$$
   衡量重构前后的 HTTP 请求/响应 Payload JSON Schema 字段及类型的对齐程度。
 
+### 1.1 工业级双轨测试验证分类体系 (Dual-Track Testing Strategy)
+
+为精准还原真实企业级遗留系统的重构现状，系统将基准靶场资产划分为两类具备鲜明工业特征的测试验证轨道：
+
+1. **第一轨：自带历史回归测试套件（Pre-existing Test Harness）**
+   - **典型靶场**：`02-python2-etl`、`04-node-cjs-microservice`、`05-springboot2-vue2-fullstack`。
+   - **工业场景**：企业核心服务中已存在高覆盖率的历史测试资产。现代化重构的核心诉求是在全面升级语言版本、核心中间件与依赖库（如 Java 8 ➔ 21、Jedis ➔ Lettuce、CJS ➔ ESM）后，**原有回归测试套件 100% 保持绿灯运行（Zero Behavioral Regression）**。
+   - **验证机制**：隔离沙箱直接装载目标工程并执行原有用例，断言执行结果与业务行为等价性。
+
+2. **第二轨：无单测遗留资产逆向自愈测试合成（Reverse Test Synthesis for Legacy）**
+   - **典型靶场**：`01-jsp-ecommerce`、`03-vue2-crm`。
+   - **工业场景**：大量历经十余年演进的单体 JSP 模板与老旧前端页面，历史测试完全缺失，严重依赖人工黑盒验证。
+   - **验证机制**：**Test & Quality Verifier Agent** 基于老旧源源码的 AST 控制流（Control Flow Graph）、JSP/Servlet 参数校验逻辑与 Vue 2 数据流动，**自动逆向推导出等价的契约边界断言并合成现代测试套件**（如 Spring Boot MockMvc 集成测试、Vitest 组件单元测试），一举补齐企业缺失的历史测试资产。
+
 ---
 
 ## 2. 基准用例一：JSP ➔ Spring Boot 3 & REST API (`benchmark-jsp-ecommerce`)
@@ -478,11 +492,130 @@ describe('Node 24 ESM Order Processor', () => {
 
 ---
 
-## 6. 端到端量化验收标准矩阵
+## 6. 基准用例五：Spring Boot 2.7 & Vue 2.7 ➔ Spring Boot 3.4 & Vue 3.5 旗舰级全栈靶场 (`benchmark-springboot2-vue2-payment`)
 
-| 基准测试套件 | 源生态 | 目标生态 | 目标 $P_{\text{tests}}$ | 目标 $C_{\text{ast}}$ | 目标 $M_{\text{schema}}$ | 准入综合评分 $S_{\text{fidelity}}$ |
-| :--- | :--- | :--- | :---: | :---: | :---: | :---: |
-| `benchmark-jsp-ecommerce` | JSP, Struts, JDBC | Spring Boot 3, Java 21, JPA | $\ge 95\%$ | $\ge 90\%$ | $100\%$ | **$\ge 94.5\%$** |
-| `benchmark-python2-scraper` | Python 2.7, `urllib2` | Python 3.12+, `httpx`, Async | $\ge 98\%$ | $\ge 95\%$ | $100\%$ | **$\ge 97.5\%$** |
-| `benchmark-vue2-cart` | Vue 2 Options, Vuex | Vue 3 `<script setup>`, Pinia | $\ge 98\%$ | $\ge 95\%$ | $100\%$ | **$\ge 97.5\%$** |
-| `benchmark-node-order-pipeline` | Node CJS, Callbacks | Node 24 ESM, Async/Await | $100\%$ | $100\%$ | $100\%$ | **$100.0\%$** |
+### 6.1 业务场景说明
+作为系统的旗舰级核心全栈靶场，模拟银行与第三方清结算系统的高频资金往来（Money-Critical）场景：
+1. **订单支付与余额扣减**：基于 Redis 分布式锁（Jedis SETNX + Lua 原子解锁）防止高并发超卖；账户钱包基于 JPA `@Version` 乐观锁 CAS（`WHERE version = ? AND balance >= ?`）扣款；
+2. **防重幂等与滑动窗口限流**：针对收银台高频扣款，集成 Redis 令牌桶滑动窗口限流（5 req/s）与 `X-Idempotency-Token` 幂等防重；
+3. **退款状态机流转与防呆保护**：支持多次部分退款（Partial Refund）与全额退款，严格执行退款上限防呆校验（已退金额累计不得超过订单支付总额）；
+4. **财务审计流水快照**：记账流水显式沉淀 `before_balance`、`delta_amount` 与 `after_balance`，确保双向账实相符；
+5. **行为等价性测试**：内置工业级全流程集成测试套件 `PaymentServiceIntegrationTest.java`。
+
+### 6.2 老旧源源码 (`source/backend/src/main/java/com/enterprise/pay/service/impl/PaymentServiceImpl.java`)
+```java
+package com.enterprise.pay.service.impl;
+
+import javax.persistence.EntityManager;
+import javax.transaction.Transactional;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+
+@Service
+public class PaymentServiceImpl implements PaymentService {
+    @Autowired
+    private JedisPool jedisPool;
+
+    @Transactional
+    public OrderResponseDTO payOrder(PaymentRequestDTO request) {
+        Jedis jedis = null;
+        try {
+            jedis = jedisPool.getResource();
+            // 1. 手动获取分布式锁 (SETNX 坏味道)
+            String lockKey = "lock:order:" + request.getOrderNo();
+            String lockResult = jedis.set(lockKey, "LOCKED", "NX", "EX", 10);
+            if (!"OK".equals(lockResult)) {
+                throw new IllegalStateException("System busy, please retry");
+            }
+            
+            // 2. 幂等校验与扣减业务逻辑 (javax 事务)
+            // ...
+        } finally {
+            if (jedis != null) {
+                // 手写 Lua 释放锁并归还连接池
+                jedis.eval("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end", 1, lockKey, "LOCKED");
+                jedis.close();
+            }
+        }
+    }
+}
+```
+
+### 6.3 现代化目标源码 (`target/backend/src/main/java/com/enterprise/pay/service/impl/PaymentServiceImpl.java`)
+```java
+package com.enterprise.pay.service.impl;
+
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import com.enterprise.pay.dto.PaymentRequestRecord;
+import com.enterprise.pay.dto.OrderResponseRecord;
+
+@Service
+public class PaymentServiceImpl implements PaymentService {
+    private final StringRedisTemplate redisTemplate;
+    private final DistributedLockTemplate lockTemplate;
+
+    public PaymentServiceImpl(StringRedisTemplate redisTemplate, DistributedLockTemplate lockTemplate) {
+        this.redisTemplate = redisTemplate;
+        this.lockTemplate = lockTemplate;
+    }
+
+    @Transactional
+    public OrderResponseRecord payOrder(PaymentRequestRecord request) {
+        String lockKey = "lock:order:" + request.orderNo();
+        return lockTemplate.executeWithLock(lockKey, Duration.ofSeconds(10), () -> {
+            // 优雅现代化声明式执行、Record DTO 不可变保障与 Jakarta 持久化
+            return executePaymentLogic(request);
+        });
+    }
+}
+```
+
+### 6.4 自动化验证测试套件 (`target/backend/src/test/java/com/enterprise/pay/PaymentServiceIntegrationTest.java`)
+```java
+@SpringBootTest
+public class PaymentServiceIntegrationTest {
+
+    @Autowired
+    private PaymentService paymentService;
+    @Autowired
+    private RefundService refundService;
+    @Autowired
+    private WalletService walletService;
+
+    @Test
+    public void testCompletePaymentAndRefundLifecycle() {
+        // 1. 验证创建订单与钱包扣款一致性
+        OrderEntity order = paymentService.createOrder(8899L, "MacBook Pro Kit", new BigDecimal("150.00"));
+        PaymentRequestDTO payReq = new PaymentRequestDTO(order.getOrderNo(), 8899L, new BigDecimal("150.00"), PaymentChannel.WALLET_BALANCE);
+        OrderResponseDTO paidOrder = paymentService.payOrder(payReq);
+        Assertions.assertEquals(OrderStatus.SUCCESS, paidOrder.getStatus());
+
+        // 2. 验证幂等防重拦截 (重复提交必抛出异常)
+        Assertions.assertThrows(IllegalStateException.class, () -> paymentService.payOrder(payReq));
+
+        // 3. 验证部分退款与累计超限防呆保护
+        RefundRecordEntity partial = refundService.applyRefund(new RefundRequestDTO(order.getOrderNo(), 8899L, new BigDecimal("50.00")));
+        refundService.auditRefund(partial.getRefundNo(), true, "Auditor");
+        
+        // 尝试退款超额（总计 150，已退 50，再退 110 必须被防呆拦截）
+        Assertions.assertThrows(IllegalStateException.class, () -> 
+            refundService.applyRefund(new RefundRequestDTO(order.getOrderNo(), 8899L, new BigDecimal("110.00")))
+        );
+    }
+}
+```
+
+---
+
+## 7. 端到端量化验收标准矩阵
+
+| 基准测试套件 | 靶场核心业务场景 | 源生态 | 目标生态 | 目标 $P_{\text{tests}}$ | 目标 $C_{\text{ast}}$ | 目标 $M_{\text{schema}}$ | 准入综合评分 $S_{\text{fidelity}}$ |
+| :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: |
+| `benchmark-jsp-ecommerce` | 电商购物车与阶梯满减结算 | JSP, Struts, JDBC | Spring Boot 3, Java 21, JPA | $\ge 95\%$ | $\ge 90\%$ | $100\%$ | **$\ge 94.5\%$** |
+| `benchmark-python2-scraper` | 金融外汇折算与风险批处理 | Python 2.7, `urllib2` | Python 3.12+, `httpx`, Async | $\ge 98\%$ | $\ge 95\%$ | $100\%$ | **$\ge 97.5\%$** |
+| `benchmark-vue2-cart` | 信贷敞口评估与总账台账 | Vue 2 Options, Vuex | Vue 3 `<script setup>`, Pinia | $\ge 98\%$ | $\ge 95\%$ | $100\%$ | **$\ge 97.5\%$** |
+| `benchmark-node-order-pipeline` | 跨境支付与银行流水对账网关 | Node CJS, Callbacks | Node 24 ESM, Async/Await | $100\%$ | $100\%$ | $100\%$ | **$100.0\%$** |
+| `benchmark-springboot2-vue2-payment`<br>*(旗帜级全栈靶场)* | **核心支付收银台、Redis 分布式锁、余额乐观锁 CAS、退款状态机** | **Spring Boot 2.7, javax.*, Jedis, Vue 2.7** | **Spring Boot 3.4, Java 21 Record, Jakarta, Vue 3.5, Pinia** | **$100\%$** | **$\ge 98\%$** | **$100\%$** | **$\ge 98.8\%$** |
+

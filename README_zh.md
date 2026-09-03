@@ -273,8 +273,8 @@ stateDiagram-v2
 
 ### 环境要求
 - **Node.js**：`24.x LTS`
-- **包管理器**：`pnpm`（推荐）或 `npm`
-- **大模型 API Key**：`DEEPSEEK_API_KEY` (DeepSeek-v4-pro)
+- **包管理器**：`npm` (v10+)
+- **大模型 API Key**：`DEEPSEEK_API_KEY` (DeepSeek-v4-pro, 支持工作台 BYOK 模式或服务端配置)
 
 ### 1. 克隆代码仓库
 ```bash
@@ -285,16 +285,16 @@ cd legacy-code-modernizer
 ### 2. 后端服务启动
 ```bash
 cd Backend
-pnpm install
-pnpm dev
+npm install
+npm run dev
 # 后端服务运行于 http://localhost:4000
 ```
 
 ### 3. 前端工作台启动
 ```bash
 cd ../Frontend
-pnpm install
-pnpm dev
+npm install
+npm run dev
 # 浏览器访问 http://localhost:5173 即可进入工作台
 ```
 

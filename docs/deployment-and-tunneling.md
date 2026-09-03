@@ -94,5 +94,5 @@ If judges require asynchronous 24/7 access when the local machine is powered off
 
 | Component | Target Platform | Build Command | Runtime |
 | :--- | :--- | :--- | :--- |
-| **Frontend UI** | Vercel / Cloudflare Pages | `pnpm build` | Static Edge CDN |
-| **Backend API & Agents** | Railway / Render / DigitalOcean VPS | `pnpm start` | Node.js 24 LTS |
+| **Frontend UI** | Vercel / Cloudflare Pages | `npm run build` | Static Edge CDN |
+| **Backend API & Agents** | Railway / Render / DigitalOcean VPS | `npm start` | Node.js 24 LTS |

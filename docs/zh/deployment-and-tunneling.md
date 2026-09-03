@@ -94,5 +94,5 @@ ngrok http 5173
 
 | 模块组件 | 推荐托管平台 | 构建/启动命令 | 运行时环境 |
 | :--- | :--- | :--- | :--- |
-| **前端工作台** | Vercel / Cloudflare Pages | `pnpm build` | 边缘静态 CDN |
-| **后端 Agent 运行时** | Railway / Render / 轻量云 VPS | `pnpm start` | Node.js 24 LTS |
+| **前端工作台** | Vercel / Cloudflare Pages | `npm run build` | 边缘静态 CDN |
+| **后端 Agent 运行时** | Railway / Render / 轻量云 VPS | `npm start` | Node.js 24 LTS |

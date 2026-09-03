@@ -278,8 +278,8 @@ The architecture is built on modern 2025/2026 LTS standards, strictly audited fo
 
 ### Prerequisites
 - **Node.js**: `24.x LTS`
-- **Package Manager**: `pnpm` (recommended) or `npm`
-- **LLM API Key**: `DEEPSEEK_API_KEY` (DeepSeek-v4-pro)
+- **Package Manager**: `npm` (v10+)
+- **LLM API Key**: `DEEPSEEK_API_KEY` (DeepSeek-v4-pro, supported via workbench BYOK or server config)
 
 ### 1. Clone Repository
 ```bash
@@ -290,16 +290,16 @@ cd legacy-code-modernizer
 ### 2. Backend Setup
 ```bash
 cd Backend
-pnpm install
-pnpm dev
+npm install
+npm run dev
 # Server running at http://localhost:4000
 ```
 
 ### 3. Frontend Setup
 ```bash
 cd ../Frontend
-pnpm install
-pnpm dev
+npm install
+npm run dev
 # Workbench accessible at http://localhost:5173
 ```
 

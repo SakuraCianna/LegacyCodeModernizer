@@ -21,6 +21,20 @@ Where:
   $$M_{\text{schema}} = \frac{N_{\text{matching\_fields}}}{N_{\text{total\_contract\_fields}}} \times 100\%$$
   Measures JSON/HTTP payload schema equivalence between legacy input/output contracts and modernized REST/GraphQL contracts.
 
+### 1.1 Dual-Track Verification Strategy (Industrial Classification)
+
+To faithfully reflect real-world enterprise modernization environments, benchmark suites are categorized into two industrial validation tracks:
+
+1. **Track 1: Pre-existing Test Harness Preservation**
+   - **Representative Benchmarks**: `02-python2-etl`, `04-node-cjs-microservice`, `05-springboot2-vue2-fullstack`.
+   - **Scenario**: Mission-critical enterprise services with high-coverage historical tests. Modernization mandates upgrading runtime frameworks (Java 8 ➔ 21, Jedis ➔ Lettuce, CJS ➔ ESM) while ensuring **100% test green status with zero behavioral regression ($P_{\text{tests}} = 100\%$)**.
+   - **Verification**: Sandboxes mount target projects and directly execute the pre-existing test harness.
+
+2. **Track 2: Reverse Test Synthesis for Uncovered Legacy Assets**
+   - **Representative Benchmarks**: `01-jsp-ecommerce`, `03-vue2-crm`.
+   - **Scenario**: Decades-old monolithic JSP templates and legacy frontend pages lacking unit tests, historically validated via manual blackbox testing.
+   - **Verification**: The **Test & Quality Verifier Agent** parses the legacy source AST, control flow graph (CFG), and parameter constraints, **automatically synthesizing modern verification suites** (JUnit 5 MockMvc / Vitest) to permanently close enterprise test debt.
+
 ---
 
 ## 2. Benchmark Suite 1: JSP ➔ Spring Boot 3 & Modern REST (`benchmark-jsp-ecommerce`)
@@ -476,11 +490,129 @@ describe('Node 24 ESM Order Processor', () => {
 
 ---
 
-## 6. End-to-End Evaluation Criteria Matrix
+## 6. Benchmark Suite 5: Spring Boot 2.7 & Vue 2.7 ➔ Spring Boot 3.4 & Vue 3.5 Fullstack Flagship (`benchmark-springboot2-vue2-payment`)
 
-| Benchmark Suite | Source Ecosystem | Target Ecosystem | Target $P_{\text{tests}}$ | Target $C_{\text{ast}}$ | Target $M_{\text{schema}}$ | Required Minimum $S_{\text{fidelity}}$ |
-| :--- | :--- | :--- | :---: | :---: | :---: | :---: |
-| `benchmark-jsp-ecommerce` | JSP, Struts, JDBC | Spring Boot 3, Java 21, JPA | $\ge 95\%$ | $\ge 90\%$ | $100\%$ | **$\ge 94.5\%$** |
-| `benchmark-python2-scraper` | Python 2.7, `urllib2` | Python 3.12+, `httpx`, Async | $\ge 98\%$ | $\ge 95\%$ | $100\%$ | **$\ge 97.5\%$** |
-| `benchmark-vue2-cart` | Vue 2 Options, Vuex | Vue 3 `<script setup>`, Pinia | $\ge 98\%$ | $\ge 95\%$ | $100\%$ | **$\ge 97.5\%$** |
-| `benchmark-node-order-pipeline` | Node CJS, Callbacks | Node 24 ESM, Async/Await | $100\%$ | $100\%$ | $100\%$ | **$100.0\%$** |
+### 6.1 Business Scenario
+As the flagship comprehensive full-stack benchmark, this suite models mission-critical enterprise financial settlements and refund dispute workflows:
+1. **Order Payment & Wallet CAS Deduction**: Jedis Redis distributed locking (`SETNX` + Lua atomic unlock) guarding high-concurrency race conditions; JPA `@Version` optimistic locking CAS (`WHERE version = ? AND balance >= ?`) on account balances;
+2. **Idempotency & Rate Limiting**: Redis token-bucket sliding window rate limiter (5 req/s) combined with `X-Idempotency-Token` anti-replay filters;
+3. **Refund State Machine & Over-Refund Guard**: Multi-step partial refunds (`REFUND_PARTIAL`) and full refunds (`REFUND_FULL`) with strict cumulative ceiling validation (cumulative refunds cannot exceed total paid amount);
+4. **Financial Audit Ledger Snapshots**: Full transaction trail persisting `before_balance`, `delta_amount`, and `after_balance` for bidirectional reconciliation;
+5. **Behavioral Equivalence Harness**: Production-grade JUnit 5 integration suite `PaymentServiceIntegrationTest.java`.
+
+### 6.2 Legacy Source Code (`source/backend/src/main/java/com/enterprise/pay/service/impl/PaymentServiceImpl.java`)
+```java
+package com.enterprise.pay.service.impl;
+
+import javax.persistence.EntityManager;
+import javax.transaction.Transactional;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+
+@Service
+public class PaymentServiceImpl implements PaymentService {
+    @Autowired
+    private JedisPool jedisPool;
+
+    @Transactional
+    public OrderResponseDTO payOrder(PaymentRequestDTO request) {
+        Jedis jedis = null;
+        try {
+            jedis = jedisPool.getResource();
+            // 1. Manual distributed lock acquisition (SETNX anti-pattern)
+            String lockKey = "lock:order:" + request.getOrderNo();
+            String lockResult = jedis.set(lockKey, "LOCKED", "NX", "EX", 10);
+            if (!"OK".equals(lockResult)) {
+                throw new IllegalStateException("System busy, please retry");
+            }
+            
+            // 2. Legacy javax transactional boundary and balance deduction
+            // ...
+        } finally {
+            if (jedis != null) {
+                // Handcrafted Lua script release and manual pool return
+                jedis.eval("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end", 1, lockKey, "LOCKED");
+                jedis.close();
+            }
+        }
+    }
+}
+```
+
+### 6.3 Modernized Target Code (`target/backend/src/main/java/com/enterprise/pay/service/impl/PaymentServiceImpl.java`)
+```java
+package com.enterprise.pay.service.impl;
+
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import com.enterprise.pay.dto.PaymentRequestRecord;
+import com.enterprise.pay.dto.OrderResponseRecord;
+
+@Service
+public class PaymentServiceImpl implements PaymentService {
+    private final StringRedisTemplate redisTemplate;
+    private final DistributedLockTemplate lockTemplate;
+
+    public PaymentServiceImpl(StringRedisTemplate redisTemplate, DistributedLockTemplate lockTemplate) {
+        this.redisTemplate = redisTemplate;
+        this.lockTemplate = lockTemplate;
+    }
+
+    @Transactional
+    public OrderResponseRecord payOrder(PaymentRequestRecord request) {
+        String lockKey = "lock:order:" + request.orderNo();
+        return lockTemplate.executeWithLock(lockKey, Duration.ofSeconds(10), () -> {
+            // Modern declarative lock execution with immutable Record DTO and Jakarta EE
+            return executePaymentLogic(request);
+        });
+    }
+}
+```
+
+### 6.4 Automated Verification Test Suite (`target/backend/src/test/java/com/enterprise/pay/PaymentServiceIntegrationTest.java`)
+```java
+@SpringBootTest
+public class PaymentServiceIntegrationTest {
+
+    @Autowired
+    private PaymentService paymentService;
+    @Autowired
+    private RefundService refundService;
+    @Autowired
+    private WalletService walletService;
+
+    @Test
+    public void testCompletePaymentAndRefundLifecycle() {
+        // 1. Verify Order Creation & Wallet CAS balance deduction
+        OrderEntity order = paymentService.createOrder(8899L, "MacBook Pro Kit", new BigDecimal("150.00"));
+        PaymentRequestDTO payReq = new PaymentRequestDTO(order.getOrderNo(), 8899L, new BigDecimal("150.00"), PaymentChannel.WALLET_BALANCE);
+        OrderResponseDTO paidOrder = paymentService.payOrder(payReq);
+        Assertions.assertEquals(OrderStatus.SUCCESS, paidOrder.getStatus());
+
+        // 2. Verify Idempotency Guard (Duplicate payment must throw exception)
+        Assertions.assertThrows(IllegalStateException.class, () -> paymentService.payOrder(payReq));
+
+        // 3. Verify Partial Refund & Over-Refund Guard
+        RefundRecordEntity partial = refundService.applyRefund(new RefundRequestDTO(order.getOrderNo(), 8899L, new BigDecimal("50.00")));
+        refundService.auditRefund(partial.getRefundNo(), true, "Auditor");
+        
+        // Exceeding cumulative payment must be caught by boundary protection
+        Assertions.assertThrows(IllegalStateException.class, () -> 
+            refundService.applyRefund(new RefundRequestDTO(order.getOrderNo(), 8899L, new BigDecimal("110.00")))
+        );
+    }
+}
+```
+
+---
+
+## 7. End-to-End Evaluation Criteria Matrix
+
+| Benchmark Suite | Core Scenario | Source Ecosystem | Target Ecosystem | Target $P_{\text{tests}}$ | Target $C_{\text{ast}}$ | Target $M_{\text{schema}}$ | Required Minimum $S_{\text{fidelity}}$ |
+| :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: |
+| `benchmark-jsp-ecommerce` | E-commerce Cart & Tiered Checkout | JSP, Struts, JDBC | Spring Boot 3, Java 21, JPA | $\ge 95\%$ | $\ge 90\%$ | $100\%$ | **$\ge 94.5\%$** |
+| `benchmark-python2-scraper` | Financial FX & VaR Batch Scoring | Python 2.7, `urllib2` | Python 3.12+, `httpx`, Async | $\ge 98\%$ | $\ge 95\%$ | $100\%$ | **$\ge 97.5\%$** |
+| `benchmark-vue2-cart` | FinTech Credit Risk & Ledger Portal | Vue 2 Options, Vuex | Vue 3 `<script setup>`, Pinia | $\ge 98\%$ | $\ge 95\%$ | $100\%$ | **$\ge 97.5\%$** |
+| `benchmark-node-order-pipeline` | Cross-border Payment & Reconciliation Gateway | Node CJS, Callbacks | Node 24 ESM, Async/Await | $100\%$ | $100\%$ | $100\%$ | **$100.0\%$** |
+| `benchmark-springboot2-vue2-payment`<br>*(Flagship Fullstack)* | **Core Cashier, Redis Dist-Lock, CAS Wallet, Refund State Machine** | **Spring Boot 2.7, javax.*, Jedis, Vue 2.7** | **Spring Boot 3.4, Java 21 Record, Jakarta, Vue 3.5, Pinia** | **$100\%$** | **$\ge 98\%$** | **$100\%$** | **$\ge 98.8\%$** |
