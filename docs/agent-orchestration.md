@@ -121,9 +121,17 @@ stateDiagram-v2
     state "Testing & Verification" as VERIFYING {
         [*] --> GenTests
         GenTests: Synthesize Regression Tests
-        GenTests --> RunSandbox
-        RunSandbox: Execute Sandbox Tests
-        RunSandbox --> CalcScore
+        GenTests --> ToolCallExec
+        ToolCallExec: Agent Tool-Calls execute_command in Sandbox
+        ToolCallExec --> StreamTerminal
+        StreamTerminal: Stream Real-time Logs to Bottom xterm & Chat Badges
+        StreamTerminal --> EvalExitCode
+        EvalExitCode --> AutoHealLoop: Test Failed (Non-Zero Exit Code)
+        AutoHealLoop: Autonomous Self-Healing Patching (Max 3 Passes)
+        AutoHealLoop --> ToolCallExec: Re-run Tests
+        AutoHealLoop --> GrillMeCard: Unresolved after 3 Passes -> Emit grill-me Card
+        GrillMeCard --> ToolCallExec: Resume on User Input
+        EvalExitCode --> CalcScore: All Tests Green
         CalcScore: Compute Fidelity Score
     }
 

@@ -121,9 +121,17 @@ stateDiagram-v2
     state "测试验证 (Verifying)" as VERIFYING {
         [*] --> GenTests
         GenTests: 提取历史逻辑并合成测试套件
-        GenTests --> RunSandbox
-        RunSandbox: 在轻量沙箱中执行测试
-        RunSandbox --> CalcScore
+        GenTests --> ToolCallExec
+        ToolCallExec: Agent自主调用execute_command执行沙箱测试
+        ToolCallExec --> StreamTerminal
+        StreamTerminal: 输出流式推送到底部xterm终端与聊天卡片
+        StreamTerminal --> EvalExitCode
+        EvalExitCode --> AutoHealLoop: 测试失败(非零退出码)
+        AutoHealLoop: 最多3轮读取报错堆栈自主修补代码
+        AutoHealLoop --> ToolCallExec: 自愈重测
+        AutoHealLoop --> GrillMeCard: 3轮未收敛触发人机协同卡片
+        GrillMeCard --> ToolCallExec: 用户决策后执行
+        EvalExitCode --> CalcScore: 测试全部绿灯
         CalcScore: 计算业务保真度综合评分
     }
 
